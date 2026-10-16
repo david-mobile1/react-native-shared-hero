@@ -34,8 +34,22 @@ object HeroRegistry {
    * InPlaceToggle destination whose stash never refreshed). Mirrors iOS's
    * `lastKnownSnapshots`; without it a later in-place toggle flies an
    * invisible/blank overlay or skips the overlay entirely.
+   *
+   * Bounded LRU, not a plain map: nothing ever removes a key, so every hero id that flew once kept
+   * its bitmap for the life of the process — for a detail-size hero a 992×992
+   * ARGB bitmap (3.75 MB). Opening 100 different detail screens grew the native heap by ~5.6 MB each,
+   * never released by GC or trim-memory (Pixel 5). The fallback only ever serves the
+   * heroes flying right now, so the few most recent keys are all it needs. Evicted bitmaps are
+   * dropped, not recycled — an active flight may still be drawing one.
+   *
+   * Writes go through [rememberSnapshot], which keeps only bitmaps no bigger than the smaller end
+   * of their flight: with 4 keys of detail-size bitmaps the bound still held ~15 MB for nothing.
    */
-  private val lastKnownSnapshots = mutableMapOf<String, HeroSnapshot>()
+  private val lastKnownSnapshots =
+    object : LinkedHashMap<String, HeroSnapshot>(LAST_KNOWN_SNAPSHOTS_MAX + 1, 0.75f, true) {
+      override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, HeroSnapshot>?): Boolean =
+        size > LAST_KNOWN_SNAPSHOTS_MAX
+    }
   private val handler = Handler(Looper.getMainLooper())
   private var matchScheduled = false
 
@@ -267,9 +281,7 @@ object HeroRegistry {
     // Remember the last known-good (non-blank) snapshot for this key so a
     // future toggle whose source can't render falls back to it instead of
     // flying an invisible overlay.
-    if (snap.hasBitmap() && !isLikelyBlank(snap.bitmap)) {
-      lastKnownSnapshots[keyFor(dest)] = snap
-    }
+    rememberSnapshot(keyFor(dest), snap, dest)
     val key = System.identityHashCode(dest)
     pendingFlights[key] = PendingFlight(snap, source?.let { WeakReference(it) }, inPlace)
     if (tryFire(dest, attemptsUsed = 0)) return
@@ -324,12 +336,16 @@ object HeroRegistry {
     var snap = pending.snapshot
     var haveContent = snap.hasBitmap() && !isLikelyBlank(snap.bitmap)
     if (haveContent) {
-      lastKnownSnapshots[destKey] = snap
+      rememberSnapshot(destKey, snap, dest)
     } else {
       val destContent = dest.renderContentForFlightFallback()
       if (destContent?.bitmap != null && !isLikelyBlank(destContent.bitmap)) {
-        lastKnownSnapshots[destKey] =
-          HeroSnapshot(destContent.bitmap, destContent.rect, destContent.cornerRadius, destContent.backgroundColor)
+        rememberSnapshot(
+          destKey,
+          HeroSnapshot(destContent.bitmap, destContent.rect, destContent.cornerRadius, destContent.backgroundColor),
+          dest,
+          sourceRect = snap.rect,
+        )
         val srcRect = if (snap.rect.width() > 0 && snap.rect.height() > 0) snap.rect else destContent.rect
         snap = HeroSnapshot(destContent.bitmap, srcRect, snap.cornerRadius, snap.backgroundColor)
         haveContent = true
@@ -389,6 +405,36 @@ object HeroRegistry {
       return
     }
     handler.post { pollForLayout(dest, attemptsLeft - 1) }
+  }
+
+  /**
+   * Keep [snap] as [key]'s last-known-good fallback (see `lastKnownSnapshots`) unless its bitmap is
+   * bigger than the smaller end of its flight ([sourceRect] → [dest]). The fallback only stands in
+   * for a source that rendered blank, and a list-size bitmap does that as well as a detail-size one;
+   * the detail-size ones (a back-flight's source, a zoom-in destination's image) cost 3.75 MB each.
+   * A quarter of slack absorbs rounding in transformed rects.
+   *
+   * Nothing is kept before [dest]'s first layout: its size is one end of the bound, and without it
+   * a back-flight's detail-size bitmap passed against its own (detail-size) source rect. A later
+   * call from `tryFire`, once [dest] is laid out, then could not evict it.
+   */
+  private fun rememberSnapshot(
+    key: String,
+    snap: HeroSnapshot,
+    dest: SharedHeroView,
+    sourceRect: android.graphics.Rect = snap.rect,
+  ) {
+    if (dest.width <= 0 || dest.height <= 0) return
+    val bitmap = snap.bitmap ?: return
+    if (isLikelyBlank(bitmap)) return
+    val smallerEnd = listOf(
+      sourceRect.width().toLong() * sourceRect.height(),
+      dest.width.toLong() * dest.height,
+    ).filter { it > 0 }.minOrNull()
+    if (smallerEnd != null && bitmap.width.toLong() * bitmap.height > smallerEnd + smallerEnd / 4) {
+      return
+    }
+    lastKnownSnapshots[key] = snap
   }
 
   // MARK: - In-place match-pass path (unregister → register within 1 tick).
@@ -456,6 +502,11 @@ object HeroRegistry {
 
   private const val TAG = "SharedHeroRegistry"
   private const val MAX_LAYOUT_ATTEMPTS = 120
+  /**
+   * How many hero keys keep a last-known-good snapshot — see `lastKnownSnapshots`. Two: the hero
+   * flying now and the one before it.
+   */
+  private const val LAST_KNOWN_SNAPSHOTS_MAX = 2
 
   /**
    * Max frames an IN-PLACE flight will wait for a non-blank bitmap (source or
