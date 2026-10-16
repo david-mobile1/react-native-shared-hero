@@ -70,6 +70,11 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     stashedSnapshot = null
     hasGoodStash = false
     detaching = false
+    if (hiddenForBackFlight) {
+      hiddenForBackFlight = false
+      visibility = VISIBLE
+      alpha = 1f
+    }
     syncRegistration()
   }
 
@@ -504,6 +509,21 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
   private fun refreshStashRect() {
     val stash = stashedSnapshot ?: return
     stashedSnapshot = stash.copy(rect = windowRect())
+  }
+
+  private var hiddenForBackFlight = false
+
+  /**
+   * Hide this outgoing view once the flight carrying it back has started. It has left the window,
+   * but its screen still draws it through the exit animation, so it stood where the user let go
+   * while its own snapshot flew away — a ghost. No capture: nothing will read this view again
+   * unless it re-attaches, which shows it again.
+   */
+  fun hideForBackFlight() {
+    if (hiddenForFlight || hiddenForBackFlight) return
+    hiddenForBackFlight = true
+    visibility = INVISIBLE
+    alpha = 0f
   }
 
   /** Cached fallback set in `setHiddenForFlight` and the rolling `dispatchDraw`. */

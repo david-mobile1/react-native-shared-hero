@@ -47,7 +47,12 @@ object HeroRegistry {
    * unregistered" — a host-navigator reparent (detach+reattach within a tick)
    * that must NOT fly a view onto itself (the iOS "same-id churn" ghost bug).
    */
-  private data class PendingSource(val snapshot: HeroSnapshot, val sourceViewId: Int)
+  private data class PendingSource(
+    val snapshot: HeroSnapshot,
+    val sourceViewId: Int,
+    /** The outgoing view, still drawn inside its screen's exit animation — see `hideForBackFlight`. */
+    val view: WeakReference<SharedHeroView>? = null,
+  )
 
   /**
    * Flight queued waiting for the destination's first layout pass.
@@ -131,6 +136,7 @@ object HeroRegistry {
           "sourceRect=${sourceSnap.rect}",
       )
       view.setHiddenForFlight(true)
+      recent.view?.get()?.hideForBackFlight()
       queuePendingFlight(sourceSnap, source = null, dest = view, inPlace = true)
       return
     }
@@ -189,7 +195,7 @@ object HeroRegistry {
     }
 
     if (snap != null) {
-      recentlyUnregistered[key] = PendingSource(snap, System.identityHashCode(view))
+      recentlyUnregistered[key] = PendingSource(snap, System.identityHashCode(view), WeakReference(view))
     }
     pendingMatchKeys.add(key)
     scheduleMatchPass()
@@ -417,6 +423,7 @@ object HeroRegistry {
             "blank=${isLikelyBlank(source.snapshot.bitmap)} usedFallback=${sourceSnap !== source.snapshot}",
         )
         dest.setHiddenForFlight(true)
+        source.view?.get()?.hideForBackFlight()
         // `inPlace = true`: this fallback path also has no host transition to
         // mask the overlay handoff, so fire synchronously on layout-ready.
         queuePendingFlight(sourceSnap, null, dest, inPlace = true)
