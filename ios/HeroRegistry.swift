@@ -65,7 +65,12 @@ import UIKit
   /// the source-still-around-but-empty-render case; this per-key cache also
   /// covers the source being recycled/torn down by Fabric / react-native-screens
   /// between pushes, when even the view-level stash is gone.
-  private var lastKnownSnapshots: [String: HeroSnapshot] = [:]
+  ///
+  /// Bounded LRU, not a plain dictionary: nothing ever removed a key, so every hero id that flew
+  /// once kept its image for the life of the process — after a back-flight, the detail-size one.
+  /// The Android twin of this map grew the native heap ~5.6 MB per distinct detail screen opened
+  /// (Pixel 5). The fallback only serves heroes flying right now, so a few keys are enough.
+  private var lastKnownSnapshots = SnapshotLRU(capacity: 4)
 
   /// Window-frame of the most recent flight's *source* per key. Updated EVERY
   /// time a flight is queued — forward (runTwinFlight, source = list) and back
@@ -1092,6 +1097,44 @@ import UIKit
 
   fileprivate static func id(_ view: SharedHeroViewImpl) -> String {
     return "@" + String(UInt(bitPattern: ObjectIdentifier(view).hashValue), radix: 16)
+  }
+}
+
+/// Least-recently-used `HeroSnapshot` cache for `HeroRegistry.lastKnownSnapshots`. Main-thread
+/// only, like the registry. A read or write marks the key most recent; past `capacity` the oldest
+/// key is dropped (its image is released once no flight still holds it).
+struct SnapshotLRU {
+  private let capacity: Int
+  private var entries: [String: HeroSnapshot] = [:]
+  private var order: [String] = []
+
+  init(capacity: Int) {
+    self.capacity = max(1, capacity)
+  }
+
+  subscript(key: String) -> HeroSnapshot? {
+    mutating get {
+      guard let snap = entries[key] else { return nil }
+      touch(key)
+      return snap
+    }
+    set {
+      guard let snap = newValue else {
+        entries[key] = nil
+        order.removeAll { $0 == key }
+        return
+      }
+      entries[key] = snap
+      touch(key)
+      while order.count > capacity {
+        entries[order.removeFirst()] = nil
+      }
+    }
+  }
+
+  private mutating func touch(_ key: String) {
+    order.removeAll { $0 == key }
+    order.append(key)
   }
 }
 
