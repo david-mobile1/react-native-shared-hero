@@ -195,6 +195,32 @@ object HeroRegistry {
     scheduleMatchPass()
   }
 
+  /**
+   * Drop [view] from the bucket of [key] — the key it was registered under before its id changed in
+   * place (a recycled list cell) — with no back-flight and no in-place match: its content changed
+   * along with its id, so nothing it shows now belongs to [key]. A flight still waiting for this
+   * view's layout would land the old id's photo on the new content; it is cancelled and both ends
+   * shown again.
+   */
+  fun forget(view: SharedHeroView, key: String) {
+    live[key]?.let { bucket ->
+      bucket.removeAll { it.get() === view || it.get() == null }
+      if (bucket.isEmpty()) live.remove(key)
+    }
+    val viewId = System.identityHashCode(view)
+    alreadyFlighted.remove(viewId)
+    pendingFlights.remove(viewId)?.let { pending ->
+      pending.source?.get()?.setHiddenForFlight(false)
+      view.setHiddenForFlight(false)
+    }
+    // A flight FROM it keeps its snapshot (taken from the old content) but must not hide the view,
+    // which no longer shows that content.
+    for ((destId, pending) in pendingFlights.entries.toList()) {
+      if (pending.source?.get() === view) pendingFlights[destId] = pending.copy(source = null)
+    }
+    Log.d(TAG, "forget renamed view=${id(view)} oldKey=$key newKey=${keyFor(view)}")
+  }
+
   /** Called when an already-registered view changed its `(id, namespace)`. */
   fun notifyConfigChanged(view: SharedHeroView) {
     val key = keyFor(view)
