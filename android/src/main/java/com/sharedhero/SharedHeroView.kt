@@ -192,6 +192,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     config.enabled = true
     config.returnFlightEnabled = true
     hiddenForFlight = false
+    hiddenForBackFlight = false
     visibility = VISIBLE
     alpha = 1f
     stashedSnapshot = null
