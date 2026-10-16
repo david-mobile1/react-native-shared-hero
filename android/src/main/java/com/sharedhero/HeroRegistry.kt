@@ -413,6 +413,10 @@ object HeroRegistry {
    * for a source that rendered blank, and a list-size bitmap does that as well as a detail-size one;
    * the detail-size ones (a back-flight's source, a zoom-in destination's image) cost 3.75 MB each.
    * A quarter of slack absorbs rounding in transformed rects.
+   *
+   * Nothing is kept before [dest]'s first layout: its size is one end of the bound, and without it
+   * a back-flight's detail-size bitmap passed against its own (detail-size) source rect. A later
+   * call from `tryFire`, once [dest] is laid out, then could not evict it.
    */
   private fun rememberSnapshot(
     key: String,
@@ -420,6 +424,7 @@ object HeroRegistry {
     dest: SharedHeroView,
     sourceRect: android.graphics.Rect = snap.rect,
   ) {
+    if (dest.width <= 0 || dest.height <= 0) return
     val bitmap = snap.bitmap ?: return
     if (isLikelyBlank(bitmap)) return
     val smallerEnd = listOf(
