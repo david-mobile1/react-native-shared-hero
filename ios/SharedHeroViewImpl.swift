@@ -469,16 +469,50 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
     return snap
   }
 
-  /// Whether an image inside this hero has decoded (FastImage's view is a `UIImageView`).
-  func hasLoadedImage() -> Bool {
-    return Self.hasLoadedImage(in: contentView)
+  /// What a zoom-in flight can learn about this hero's image — see `flightImage()`.
+  enum FlightImage {
+    /// Not an image-only hero (text, badges, card chrome, a small icon) or no image at all.
+    case none
+    /// Image-only, and an image has decoded.
+    case loaded
+    /// Image-only, and no image has decoded yet.
+    case pending
   }
 
-  private static func hasLoadedImage(in view: UIView) -> Bool {
-    if let imageView = view as? UIImageView, imageView.image != nil, !imageView.isHidden {
-      return true
+  /// Whether this hero shows nothing but full-bleed images — every visible leaf is a `UIImageView`
+  /// covering at least 90% of the hero, no descendant draws a background or border (card chrome),
+  /// and there is at least one image — and if so, whether one has decoded. Stacked layers (a
+  /// preview under the full image) count as image-only. A zoom-in may fly the destination's own
+  /// image only between two image-only heroes; anything else would drop text and chrome, or stretch
+  /// an icon, from the first frame.
+  func flightImage() -> FlightImage {
+    let bounds = contentView.bounds
+    let heroArea = bounds.width * bounds.height
+    guard heroArea > 0 else { return .none }
+    var images = 0
+    var loaded = false
+
+    func visit(_ view: UIView) -> Bool {
+      if view.isHidden || view.alpha <= 0.01 { return true }
+      if let imageView = view as? UIImageView {
+        let frame = imageView.convert(imageView.bounds, to: contentView).intersection(bounds)
+        guard !frame.isNull, frame.width * frame.height >= heroArea * 0.9 else { return false }
+        images += 1
+        if imageView.image != nil { loaded = true }
+        return true
+      }
+      if let color = view.backgroundColor, color.cgColor.alpha > 0.01 { return false }
+      if let color = view.layer.backgroundColor, color.alpha > 0.01 { return false }
+      if view.layer.borderWidth > 0 { return false }
+      if !view.subviews.isEmpty { return view.subviews.allSatisfy { visit($0) } }
+      // A non-image leaf (text, a custom drawing view) is content the destination image lacks;
+      // only an empty plain container draws nothing.
+      let name = String(describing: type(of: view))
+      return view.layer.contents == nil && (name == "UIView" || name == "RCTViewComponentView")
     }
-    return view.subviews.contains { hasLoadedImage(in: $0) }
+
+    guard contentView.subviews.allSatisfy({ visit($0) }), images > 0 else { return .none }
+    return loaded ? .loaded : .pending
   }
 
   /// The decoded image this hero shows on top, for a zoom-in flight to fly instead of the (cropped,

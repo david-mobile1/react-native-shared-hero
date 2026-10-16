@@ -118,8 +118,11 @@ import UIKit
     // exactly the thumbnail's crop and lands pixel-identical to the destination.
     // (Zoom-out keeps the source: there the larger, uncropped view IS the source.)
     let isZoomIn = endGeo.frame.width * endGeo.frame.height > initial.frame.width * initial.frame.height
-    let destImage = isZoomIn ? dest.loadedImageForFlight() : nil
-    heroLog(HeroLog.flight, "flight content=\(destImage != nil ? "dest" : "source") zoomIn=\(isZoomIn) destLoaded=\(dest.hasLoadedImage())")
+    // Only between two image-only heroes (see `SharedHeroViewImpl.flightImage()`): a composite
+    // hero's capture carries text and chrome the destination image lacks.
+    let imageOnly = isZoomIn && sourceView?.flightImage() != SharedHeroViewImpl.FlightImage.none
+    let destImage = imageOnly && dest.flightImage() == .loaded ? dest.loadedImageForFlight() : nil
+    heroLog(HeroLog.flight, "flight content=\(destImage != nil ? "dest" : "source") zoomIn=\(isZoomIn) imageOnly=\(imageOnly)")
 
     let sourceImageView: UIImageView?
     if let img = destImage ?? source.image {

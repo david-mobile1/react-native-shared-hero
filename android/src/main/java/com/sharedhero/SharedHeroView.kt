@@ -538,23 +538,68 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     return snap
   }
 
-  /**
-   * Whether an image inside this hero has decoded. Image loaders park a placeholder drawable with
-   * no intrinsic size (FastImage: a transparent ColorDrawable) until the real bitmap lands.
-   */
-  fun hasLoadedImage(): Boolean = hasLoadedImage(this)
+  /** What a zoom-in flight can learn about this hero's image — see [flightImage]. */
+  enum class FlightImage {
+    /** Not an image-only hero (text, badges, card chrome, a small icon) or no image at all. */
+    NONE,
+    /** Image-only, and an image has decoded. */
+    LOADED,
+    /** Image-only, and no image has decoded yet (no drawable, or a loader's placeholder color). */
+    PENDING,
+    /** Image-only, but the drawable cannot say (Fresco's `RootDrawable` reports no size, ever). */
+    UNKNOWN,
+  }
 
-  private fun hasLoadedImage(view: android.view.View): Boolean {
-    if (view is android.widget.ImageView) {
-      val d = view.drawable
-      return d != null && d.intrinsicWidth > 0 && d.intrinsicHeight > 0
-    }
-    if (view is android.view.ViewGroup) {
-      for (i in 0 until view.childCount) {
-        if (hasLoadedImage(view.getChildAt(i))) return true
+  /**
+   * Whether this hero shows nothing but full-bleed images — every visible leaf is an ImageView
+   * covering at least 90% of the hero, no descendant draws a background (card chrome), and there is
+   * at least one image — and if so, whether one has decoded. Stacked layers (a preview under the
+   * full image) count as image-only. A zoom-in may fly the destination's own image only between two
+   * image-only heroes; anything else would drop text and chrome, or stretch an icon, from the
+   * first frame.
+   */
+  fun flightImage(): FlightImage {
+    val heroArea = width.toLong() * height
+    if (heroArea <= 0L) return FlightImage.NONE
+    var images = 0
+    var loaded = false
+    var unknown = false
+    val rect = Rect()
+
+    fun visit(view: android.view.View): Boolean {
+      if (view.visibility != VISIBLE || view.alpha <= 0.01f) return true
+      if (view is android.widget.ImageView) {
+        view.getDrawingRect(rect)
+        offsetDescendantRectToMyCoords(view, rect)
+        if (!rect.intersect(0, 0, width, height)) return false
+        if (rect.width().toLong() * rect.height() < heroArea * 9 / 10) return false
+        images++
+        when (val d = view.drawable) {
+          null, is android.graphics.drawable.ColorDrawable -> Unit
+          else -> if (d.intrinsicWidth > 0 && d.intrinsicHeight > 0) loaded = true else unknown = true
+        }
+        return true
       }
+      if (view.background != null) return false
+      if (view is android.view.ViewGroup) {
+        for (i in 0 until view.childCount) {
+          if (!visit(view.getChildAt(i))) return false
+        }
+        return true
+      }
+      // A non-image leaf (text, a custom drawing view) is content the destination image lacks.
+      return false
     }
-    return false
+
+    for (i in 0 until childCount) {
+      if (!visit(getChildAt(i))) return FlightImage.NONE
+    }
+    return when {
+      images == 0 -> FlightImage.NONE
+      loaded -> FlightImage.LOADED
+      unknown -> FlightImage.UNKNOWN
+      else -> FlightImage.PENDING
+    }
   }
 
   /** Cached fallback set in `setHiddenForFlight` and the rolling `dispatchDraw`. */

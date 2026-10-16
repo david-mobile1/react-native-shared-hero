@@ -925,10 +925,13 @@ import UIKit
     }
 
     // ZOOM-IN: the flight flies the destination's own image (see FlightEngine.run), so give it a
-    // bounded moment to decode. Not counted against the layout budget.
+    // bounded moment to decode. Not counted against the layout budget. Only while an image-only
+    // destination's image is still loading and the source is image-only too: any other hero
+    // flies its source capture, so it has nothing to wait for.
     if canFire,
        settled.width * settled.height > pending.snap.frame.width * pending.snap.frame.height,
-       !dest.hasLoadedImage(),
+       let source = pending.source, source.flightImage() != .none,
+       dest.flightImage() == .pending,
        CACurrentMediaTime() - pending.queuedAt < destContentWait {
       pendingFlights[key] = pending
       schedulePoll(dest: dest, after: framePollInterval)

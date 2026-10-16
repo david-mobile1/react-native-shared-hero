@@ -320,9 +320,13 @@ object HeroRegistry {
       return false
     }
     // Not on screen yet: a page inside a pager that has not applied its initial scroll offset
-    // (a flight fired now lands off screen). Keep polling until the scroll view gets there.
+    // (a flight fired now lands off screen). A zoom-in keeps polling until the scroll view gets
+    // there, for at most OFFSCREEN_DEST_WAIT_MS, then fires where it is — as iOS does. Any other
+    // flight (a back-flight to a cell scrolled out of view) fires at once.
     val root = dest.rootView
     if (!pending.inPlace && root.width > 0 && root.height > 0 &&
+      isZoomIn(pending.snapshot.rect, dest) &&
+      android.os.SystemClock.uptimeMillis() - pending.queuedAt < OFFSCREEN_DEST_WAIT_MS &&
       !android.graphics.Rect.intersects(dest.settledWindowRect(), android.graphics.Rect(0, 0, root.width, root.height))
     ) {
       return false
@@ -352,17 +356,29 @@ object HeroRegistry {
     // exactly the thumbnail's crop and lands pixel-identical to the destination. Waits a bounded
     // time for the destination's image to decode; past that, the source capture flies as before.
     // (Zoom-out keeps the source: there the larger, uncropped view IS the source.)
-    if (!pending.inPlace && isZoomIn(snap.rect, dest)) {
-      if (dest.hasLoadedImage()) {
-        val destContent = dest.captureContentForFlight()
-        if (destContent?.bitmap != null) {
-          snap = HeroSnapshot(destContent.bitmap, snap.rect, snap.cornerRadius, snap.backgroundColor)
-          Log.d(TAG, "flight content=dest bitmap=${destContent.bitmap.width}x${destContent.bitmap.height} waitedMs=${android.os.SystemClock.uptimeMillis() - pending.queuedAt}")
+    // Only between two image-only heroes (see `SharedHeroView.flightImage`): a composite hero's
+    // capture carries text and chrome the destination image lacks. The wait applies only while the
+    // destination's image is known to be loading; a hero whose loader cannot report it (Fresco)
+    // flies the source capture straight away.
+    val liveSource = pending.source?.get()
+    if (!pending.inPlace && liveSource != null && isZoomIn(snap.rect, dest) &&
+      liveSource.flightImage() != SharedHeroView.FlightImage.NONE
+    ) {
+      when (dest.flightImage()) {
+        SharedHeroView.FlightImage.LOADED -> {
+          val destContent = dest.captureContentForFlight()
+          if (destContent?.bitmap != null) {
+            snap = HeroSnapshot(destContent.bitmap, snap.rect, snap.cornerRadius, snap.backgroundColor)
+            Log.d(TAG, "flight content=dest bitmap=${destContent.bitmap.width}x${destContent.bitmap.height} waitedMs=${android.os.SystemClock.uptimeMillis() - pending.queuedAt}")
+          }
         }
-      } else if (android.os.SystemClock.uptimeMillis() - pending.queuedAt < DEST_CONTENT_WAIT_MS) {
-        return false
-      } else {
-        Log.d(TAG, "flight content=source (dest image not decoded within ${DEST_CONTENT_WAIT_MS}ms)")
+        SharedHeroView.FlightImage.PENDING ->
+          if (android.os.SystemClock.uptimeMillis() - pending.queuedAt < DEST_CONTENT_WAIT_MS) {
+            return false
+          } else {
+            Log.d(TAG, "flight content=source (dest image not decoded within ${DEST_CONTENT_WAIT_MS}ms)")
+          }
+        else -> Unit
       }
     }
     var haveContent = snap.hasBitmap() && !isLikelyBlank(snap.bitmap)
@@ -545,6 +561,8 @@ object HeroRegistry {
   private const val POLL_INTERVAL_MS = 16L
   /** How long a zoom-in waits for its destination's image before flying the source capture. */
   private const val DEST_CONTENT_WAIT_MS = 150L
+  /** How long a zoom-in waits for an off-screen destination (a pager page) to come on screen. */
+  private const val OFFSCREEN_DEST_WAIT_MS = 300L
   /**
    * How many hero keys keep a last-known-good snapshot — see `lastKnownSnapshots`. Two: the hero
    * flying now and the one before it.
