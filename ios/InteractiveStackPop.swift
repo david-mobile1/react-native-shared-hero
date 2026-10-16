@@ -188,6 +188,8 @@ import UIKit
   /// back swipe every pair is adopted via `tryAdoptInteractivePop`.
   func arm(detail: SharedHeroViewImpl, twin: SharedHeroViewImpl) {
     disarm()
+    // Cleared first so an early return below leaves no stale screen for `handOver(to:)`.
+    armedScreen = nil
     // A screen with `gestureEnabled: false` never starts an edge-swipe pop. Arming for one kept the
     // display link below ticking every frame for as long as that screen stayed open (e.g. a
     // full-screen viewer), waiting for a gesture that cannot begin.
@@ -213,8 +215,16 @@ import UIKit
   /// was armed with left that screen without a pop (a loading placeholder giving way to the loaded
   /// page, a pager handing the hero to the next page) and disarmed it, and with no flight to arm
   /// it again, the next edge swipe ran an untracked flight that cancelled the pop.
+  ///
+  /// Only a hero that can fly back takes over, and only from a driver that is gone (off the window)
+  /// or can no longer fly back: a preloaded pager page or a secondary hero mounting next to a live
+  /// driver must not steal it.
   func handOver(to view: SharedHeroViewImpl) {
+    guard view.config.returnFlightEnabled else { return }
     guard let screen = armedScreen, screen === Self.hostScreen(of: view.contentView) else { return }
+    if let current = detail, current.contentView.window != nil, current.config.returnFlightEnabled {
+      return
+    }
     guard detail !== view, !adopted, !active, !releasing, !committing, !finishing else { return }
     arm(detail: view, twin: view)
   }
