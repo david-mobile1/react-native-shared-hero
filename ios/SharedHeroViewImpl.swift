@@ -469,6 +469,40 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
     return snap
   }
 
+  /// Whether an image inside this hero has decoded (FastImage's view is a `UIImageView`).
+  func hasLoadedImage() -> Bool {
+    return Self.hasLoadedImage(in: contentView)
+  }
+
+  private static func hasLoadedImage(in view: UIView) -> Bool {
+    if let imageView = view as? UIImageView, imageView.image != nil, !imageView.isHidden {
+      return true
+    }
+    return view.subviews.contains { hasLoadedImage(in: $0) }
+  }
+
+  /// The decoded image this hero shows on top, for a zoom-in flight to fly instead of the (cropped,
+  /// smaller) source capture. Readable while the hero is hidden for a flight: hiding touches only
+  /// `contentView` and its shim, never the image views inside.
+  ///
+  /// The `UIImage` itself, shared rather than rendered: rendering the hero allocated a screen-scale
+  /// bitmap and drew the whole photo on the main thread at the flight's first frame. The flight
+  /// aspect-fills it along the same frame path, so with the hero box sized to the photo it lands
+  /// exactly as the destination's `contain` image.
+  func loadedImageForFlight() -> UIImage? {
+    guard contentView.window != nil else { return nil }
+    return Self.topmostLoadedImage(in: contentView)
+  }
+
+  /// Subviews draw over their parent, and later siblings over earlier ones (the full-size layer
+  /// over the preview), so the walk goes front to back.
+  private static func topmostLoadedImage(in view: UIView) -> UIImage? {
+    for subview in view.subviews.reversed() where !subview.isHidden && subview.alpha > 0.01 {
+      if let image = topmostLoadedImage(in: subview) { return image }
+    }
+    return (view as? UIImageView)?.image
+  }
+
   /// Corner radius used to clip the flight overlay so it matches the source.
   ///
   /// React applies `borderRadius` / `overflow: 'hidden'` to the Fabric host —

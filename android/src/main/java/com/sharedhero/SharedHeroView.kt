@@ -527,6 +527,36 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     alpha = 0f
   }
 
+  /** A zoom-in flight's image, rendered once and reused as this view's stash. */
+  fun captureContentForFlight(): HeroSnapshot? {
+    val snap = captureSnapshotRaw() ?: return null
+    if (config.returnFlightEnabled && snap.bitmap != null && !isLikelyBlankBitmap(snap.bitmap)) {
+      stashedSnapshot = snap
+      lastStashAt = System.currentTimeMillis()
+      hasGoodStash = true
+    }
+    return snap
+  }
+
+  /**
+   * Whether an image inside this hero has decoded. Image loaders park a placeholder drawable with
+   * no intrinsic size (FastImage: a transparent ColorDrawable) until the real bitmap lands.
+   */
+  fun hasLoadedImage(): Boolean = hasLoadedImage(this)
+
+  private fun hasLoadedImage(view: android.view.View): Boolean {
+    if (view is android.widget.ImageView) {
+      val d = view.drawable
+      return d != null && d.intrinsicWidth > 0 && d.intrinsicHeight > 0
+    }
+    if (view is android.view.ViewGroup) {
+      for (i in 0 until view.childCount) {
+        if (hasLoadedImage(view.getChildAt(i))) return true
+      }
+    }
+    return false
+  }
+
   /** Cached fallback set in `setHiddenForFlight` and the rolling `dispatchDraw`. */
   private var stashedSnapshot: HeroSnapshot? = null
 

@@ -123,8 +123,20 @@ import UIKit
     /// tick count) because idle `schedulePoll` hops via `DispatchQueue.main.async`
     /// back-to-back — 120 hops can elapse in a fraction of the modal present.
     var attachDeadline: CFTimeInterval?
+    /// When the flight was queued — bounds the wait for a zoom-in destination's own image.
+    var queuedAt: CFTimeInterval = CACurrentMediaTime()
   }
   private var pendingFlights: [ObjectIdentifier: PendingFlight] = [:]
+
+  /// How long a zoom-in waits for its destination's image before flying the source capture.
+  private let destContentWait: CFTimeInterval = 0.15
+
+  /// How long a zoom-in waits for an off-screen destination (a pager page before its initial
+  /// offset) to come on screen before firing where it is.
+  private let offscreenDestWait: CFTimeInterval = 0.3
+
+  /// One frame at 60 Hz — the pace of the wall-clock waits in `pollOnce`.
+  private let framePollInterval: TimeInterval = 1.0 / 60.0
 
   /// Destinations with an *active* flight (between fire and completion). We
   /// refuse a second flight for a dest while one runs, catching any
@@ -738,10 +750,17 @@ import UIKit
     }
   }
 
-  private func schedulePoll(dest: SharedHeroViewImpl) {
-    DispatchQueue.main.async { [weak self, weak dest] in
+  /// `after` > 0 paces a wall-clock wait (decode, pager offset) by frames instead of re-posting
+  /// back to back, which spun the main queue for the whole wait.
+  private func schedulePoll(dest: SharedHeroViewImpl, after delay: TimeInterval = 0) {
+    let poll = { [weak self, weak dest] in
       guard let self = self, let dest = dest else { return }
       self.pollOnce(dest: dest)
+    }
+    if delay > 0 {
+      DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: poll)
+    } else {
+      DispatchQueue.main.async(execute: poll)
     }
   }
 
@@ -862,6 +881,24 @@ import UIKit
       return
     }
 
+    // A pager page registers while its scroll view still sits at offset 0, a page or more from the
+    // one the screen opens on, so for a frame or two its rect is off screen — and two identical
+    // off-screen samples fired the open there: the photo flew sideways off the screen, then popped
+    // into place. A zoom-in waits (bounded, frame-paced, outside the layout budget) for the
+    // destination to come on screen; a hint recorded off screen is stale the same way.
+    if isReady, settled.width * settled.height > pending.snap.frame.width * pending.snap.frame.height {
+      let screen = dest.contentView.window?.bounds ?? UIScreen.main.bounds
+      if let hint = pending.destFrameHint, !hint.intersects(screen) {
+        pending.destFrameHint = nil
+      }
+      if !settled.intersects(screen), CACurrentMediaTime() - pending.queuedAt < offscreenDestWait {
+        pending.lastSampledFrame = nil
+        pendingFlights[key] = pending
+        schedulePoll(dest: dest, after: framePollInterval)
+        return
+      }
+    }
+
     let matchesHint: Bool
     if let hint = pending.destFrameHint {
       let tol = hintMatchTolerance
@@ -885,6 +922,17 @@ import UIKit
       // and land at the freshly-sampled `settled` — correct for these
       // transform-driven returns.
       canFire = isReady && pending.lastSampledFrame == settled
+    }
+
+    // ZOOM-IN: the flight flies the destination's own image (see FlightEngine.run), so give it a
+    // bounded moment to decode. Not counted against the layout budget.
+    if canFire,
+       settled.width * settled.height > pending.snap.frame.width * pending.snap.frame.height,
+       !dest.hasLoadedImage(),
+       CACurrentMediaTime() - pending.queuedAt < destContentWait {
+      pendingFlights[key] = pending
+      schedulePoll(dest: dest, after: framePollInterval)
+      return
     }
 
     if canFire {
