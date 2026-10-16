@@ -111,6 +111,8 @@ import UIKit
   /// adopted pairs are on the same popping screen and slide with it, so one
   /// suffices.
   private weak var detail: SharedHeroViewImpl?
+  /// The screen the last `arm` was for, kept past `disarm` — see `handOver(to:)`.
+  private weak var armedScreen: UIView?
 
   /// Every adopted (detail, twin) pair, including the driver's. Secondary
   /// heroes are appended as their twin flights fire.
@@ -186,7 +188,14 @@ import UIKit
   /// back swipe every pair is adopted via `tryAdoptInteractivePop`.
   func arm(detail: SharedHeroViewImpl, twin: SharedHeroViewImpl) {
     disarm()
+    // Cleared first so an early return below leaves no stale screen for `handOver(to:)`.
+    armedScreen = nil
+    // A screen with `gestureEnabled: false` never starts an edge-swipe pop. Arming for one kept the
+    // display link below ticking every frame for as long as that screen stayed open (e.g. a
+    // full-screen viewer), waiting for a gesture that cannot begin.
+    guard Self.screenAllowsSwipeBack(detail.contentView) else { return }
     self.detail = detail
+    self.armedScreen = Self.hostScreen(of: detail.contentView)
     self.ready = false
     self.active = false
     self.releasing = false
@@ -200,6 +209,24 @@ import UIKit
     self.everAttached = false
     self.attachDeadline = CACurrentMediaTime() + Self.maxAttachWaitSeconds
     startLink()
+  }
+
+  /// A hero registering on the screen the last `arm` was for takes the tracking over: the one it
+  /// was armed with left that screen without a pop (a loading placeholder giving way to the loaded
+  /// page, a pager handing the hero to the next page) and disarmed it, and with no flight to arm
+  /// it again, the next edge swipe ran an untracked flight that cancelled the pop.
+  ///
+  /// Only a hero that can fly back takes over, and only from a driver that is gone (off the window)
+  /// or can no longer fly back: a preloaded pager page or a secondary hero mounting next to a live
+  /// driver must not steal it.
+  func handOver(to view: SharedHeroViewImpl) {
+    guard view.config.returnFlightEnabled else { return }
+    guard let screen = armedScreen, screen === Self.hostScreen(of: view.contentView) else { return }
+    if let current = detail, current.contentView.window != nil, current.config.returnFlightEnabled {
+      return
+    }
+    guard detail !== view, !adopted, !active, !releasing, !committing, !finishing else { return }
+    arm(detail: view, twin: view)
   }
 
   /// Called from `HeroRegistry.runTwinFlight` for each back-transition twin
@@ -670,6 +697,9 @@ import UIKit
     heroLog(HeroLog.stackPop, "finishCommit pairs=\(pairs.count)")
     for pair in pairs {
       pair.twin?.setHiddenForFlight(false)
+      // The list hero stays registered after a real pop, so no `register` clears its adopt-time
+      // mark; left set, its next unregister (the next push) early-returns and never parks.
+      pair.twin.map { HeroRegistry.shared.unmarkInteractivelyHandled($0) }
       if let ov = pair.overlay {
         UIView.animate(
           withDuration: 0.12,
@@ -811,6 +841,7 @@ import UIKit
   /// not inside a swipe-dismissable sheet (those belong to `InteractiveModalReturn`).
   private static func isInteractivePopContext(_ view: UIView) -> Bool {
     if InteractiveModalReturn.isInSheet(view) { return false }
+    if !screenAllowsSwipeBack(view) { return false }
     var responder: UIResponder? = view
     while let r = responder {
       if let nav = r as? UINavigationController, nav.viewControllers.count > 1 {
@@ -819,6 +850,28 @@ import UIKit
       responder = r.next
     }
     return false
+  }
+
+  /// False when the react-native-screens screen hosting `view` has `gestureEnabled` off, so no
+  /// swipe-back can start there. True when there is no such screen or the flag cannot be read,
+  /// which keeps the library's own behaviour for other navigators.
+  private static func screenAllowsSwipeBack(_ view: UIView) -> Bool {
+    guard let screen = hostScreen(of: view),
+          screen.responds(to: NSSelectorFromString("gestureEnabled")),
+          let enabled = screen.value(forKey: "gestureEnabled") as? Bool
+    else { return true }
+    return enabled
+  }
+
+  /// The react-native-screens screen hosting `view`, if any.
+  private static func hostScreen(of view: UIView) -> UIView? {
+    guard let screenClass = NSClassFromString("RNSScreenView") else { return nil }
+    var current: UIView? = view
+    while let candidate = current {
+      if candidate.isKind(of: screenClass) { return candidate }
+      current = candidate.superview
+    }
+    return nil
   }
 
   /// True if `view`'s host `UINavigationController` is running an INTERACTIVE
