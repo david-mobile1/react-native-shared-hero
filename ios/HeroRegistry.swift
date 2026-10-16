@@ -30,7 +30,14 @@ import UIKit
   private struct RecentlyUnregisteredEntry {
     let snap: HeroSnapshot
     let sourceViewId: ObjectIdentifier
+    var parkedAt: CFTimeInterval = CACurrentMediaTime()
   }
+
+  /// How long an unregistered source stays matchable. One runloop tick is not enough under
+  /// Fabric + react-native-screens: a popped screen's views leave the window as the pop starts,
+  /// and the screen underneath re-attaches (registering the destination) a few ms LATER — after
+  /// a one-tick match pass has already dropped the source.
+  private let recentlyUnregisteredWindow: CFTimeInterval = 0.3
   private var recentlyUnregistered: [String: RecentlyUnregisteredEntry] = [:]
 
   /// Keys whose state changed this tick and that should be re-evaluated.
@@ -309,6 +316,7 @@ import UIKit
     // Skip when the parked source is this SAME instance: a host-navigator reparent
     // churn the match-pass ignores (`matchPass skip same-id churn`), so hiding here
     // would leave it hidden with no flight to reveal it.
+    pruneRecentlyUnregistered()
     if let pendingSource = recentlyUnregistered[key],
        pendingSource.sourceViewId != ObjectIdentifier(view) {
       view.setHiddenForFlight(true)
@@ -996,6 +1004,7 @@ import UIKit
     matchScheduled = false
     let keys = pendingKeys
     pendingKeys.removeAll()
+    pruneRecentlyUnregistered()
 
     for key in keys {
       guard let dest = live[key]?.last(where: { $0.value != nil })?.value else { continue }
@@ -1063,7 +1072,16 @@ import UIKit
       queuePendingFlight(snap: snap, source: nil, dest: dest, destFrameHint: destFrameHint)
     }
 
-    recentlyUnregistered.removeAll()
+    // Keep a source parked for `recentlyUnregisteredWindow`; its destination's `register`
+    // schedules another pass when it arrives.
+    pruneRecentlyUnregistered()
+  }
+
+  /// Drops parked sources older than `recentlyUnregisteredWindow`. Run before every read: an
+  /// entry outliving its window would pair with an unrelated registration seconds later.
+  private func pruneRecentlyUnregistered() {
+    let now = CACurrentMediaTime()
+    recentlyUnregistered = recentlyUnregistered.filter { now - $0.value.parkedAt < recentlyUnregisteredWindow }
   }
 
   // MARK: - Helpers
