@@ -46,6 +46,9 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
   /// Snapshot key currently held by the registry, used to detect prop changes.
   private var registeredKey: String?
 
+  /// Still taking part in flights — registered with the registry (enabled and on a window).
+  var isRegisteredHero: Bool { registeredKey != nil }
+
   @objc public override init() {
     self.contentView = UIView()
     self.contentView.clipsToBounds = false
