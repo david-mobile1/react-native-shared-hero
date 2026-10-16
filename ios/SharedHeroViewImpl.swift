@@ -57,14 +57,18 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
   @objc public func didUpdateConfig() {
     // If the id or namespace changed while we're registered, re-register.
     let newKey = "\(config.heroNamespace)::\(config.heroId)"
+    // Register only while on a window, as Android does: a hero enabled on a screen that is OFF the
+    // window (covered by a pushed screen) would otherwise pair with the screen covering it and fly a
+    // stale stash over it. `didMoveToWindow` registers it once it is attached.
+    let onWindow = contentView.window != nil
     if registeredKey != nil && registeredKey != newKey {
       HeroRegistry.shared.unregister(self)
       registeredKey = nil
-      if config.enabled, !config.heroId.isEmpty {
+      if config.enabled, !config.heroId.isEmpty, onWindow {
         HeroRegistry.shared.register(self)
         registeredKey = newKey
       }
-    } else if config.enabled, !config.heroId.isEmpty, registeredKey == nil {
+    } else if config.enabled, !config.heroId.isEmpty, registeredKey == nil, onWindow {
       HeroRegistry.shared.register(self)
       registeredKey = newKey
     } else if !config.enabled, registeredKey != nil {
