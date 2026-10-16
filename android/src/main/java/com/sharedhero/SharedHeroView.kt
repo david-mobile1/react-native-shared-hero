@@ -73,6 +73,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     // Re-attaching: any previously-stashed snapshot is stale.
     stashedSnapshot = null
     hasGoodStash = false
+    stashSignature = null
     detaching = false
     if (hiddenForBackFlight || restoreVisibilityOnAttach) {
       hiddenForBackFlight = false
@@ -130,7 +131,19 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     super.dispatchDraw(canvas)
     if (capturing || hiddenForFlight || detaching) return
     if (!registered || !config.enabled || config.heroId.isEmpty()) return
+    // The rolling stash only ever feeds a back-flight from this view (the unregister path and the
+    // detaching fallback), which `returnFlightEnabled = false` turns into a quiet teardown. Such a
+    // view would render a full-size software bitmap on every draw for nothing — measured on the
+    // emulator as main-thread frames inside a back-flight when a pager's neighbour pages
+    // mounted. A hidden view's stash is taken in `setHiddenForFlight` instead.
+    if (!config.returnFlightEnabled) return
     if (width <= 0 || height <= 0) return
+    // Same images as the stash: skip the full-size re-render.
+    val signature = contentSignature()
+    if (stashIsCurrent(signature)) {
+      refreshStashRect()
+      return
+    }
     val now = System.currentTimeMillis()
     // Throttle ONLY once we hold a good (non-blank) stash — the common
     // scrolling-list case the throttle exists for. Until then, capture on every
@@ -153,6 +166,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
           stashedSnapshot = it
           lastStashAt = now
           hasGoodStash = true
+          stashSignature = signature
         }
       }
     } finally {
@@ -163,6 +177,28 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
   /** Called by [SharedHeroViewManager] after each prop update. */
   fun onConfigChanged() {
     syncRegistration()
+    syncStashForReturnFlight()
+  }
+
+  private var stashArmed = true
+
+  /**
+   * Follow `returnFlightEnabled` flips on a registered view (a pager page becoming / leaving the
+   * current page): drop the stash when it turns off — nothing will read it — and take a fresh
+   * one when it turns on, since [dispatchDraw] skipped this view until now and a static photo
+   * may not draw again before the back-flight needs it.
+   */
+  private fun syncStashForReturnFlight() {
+    val armed = config.returnFlightEnabled
+    if (armed == stashArmed) return
+    stashArmed = armed
+    if (!armed) {
+      stashedSnapshot = null
+      hasGoodStash = false
+      stashSignature = null
+    } else if (registered) {
+      refreshStashSoon()
+    }
   }
 
   /**
@@ -206,8 +242,10 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
       // Left hidden for the exit fade; shown again if Fabric re-attaches the view.
       restoreVisibilityOnAttach = true
     }
+    stashArmed = true
     stashedSnapshot = null
     hasGoodStash = false
+    stashSignature = null
     cornerRadiusPx = 0f
     backgroundColorInt = Color.TRANSPARENT
   }
@@ -264,10 +302,15 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
   fun setHiddenForFlight(hidden: Boolean) {
     if (hiddenForFlight == hidden) return
     if (hidden) {
-      captureSnapshotRaw()?.let {
-        if (it.bitmap != null && !isLikelyBlankBitmap(it.bitmap)) {
-          stashedSnapshot = it
-          hasGoodStash = true
+      val signature = contentSignature()
+      when {
+        stashIsCurrent(signature) -> refreshStashRect()
+        else -> captureSnapshotRaw()?.let {
+          if (it.bitmap != null && !isLikelyBlankBitmap(it.bitmap)) {
+            stashedSnapshot = it
+            hasGoodStash = true
+            stashSignature = signature
+          }
         }
       }
     }
@@ -327,7 +370,14 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
       if (capturing || hiddenForFlight || detaching) return@post
       if (!isAttachedToWindow || !registered) return@post
       if (!config.enabled || config.heroId.isEmpty()) return@post
+      // Same reason as in `dispatchDraw`: no back-flight, no reader for the stash.
+      if (!config.returnFlightEnabled) return@post
       if (width <= 0 || height <= 0) return@post
+      val signature = contentSignature()
+      if (stashIsCurrent(signature)) {
+        refreshStashRect()
+        return@post
+      }
       capturing = true
       try {
         captureSnapshotRaw()?.let {
@@ -335,6 +385,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
             stashedSnapshot = it
             lastStashAt = System.currentTimeMillis()
             hasGoodStash = true
+            stashSignature = signature
             android.util.Log.d(
               "SharedHeroView",
               "stash refresh view=${System.identityHashCode(this)} size=${it.bitmap.width}x${it.bitmap.height} rect=${it.rect}",
@@ -449,6 +500,14 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     if (hiddenForFlight || detaching) {
       stashedSnapshot?.let { return it }
     }
+    // Fabric tears a popped screen's content down before the hero itself, which stays attached
+    // for the exit animation: a live render now is EMPTY. It was the close flight's source — a
+    // blank 1080x1080 bitmap, rendered twice on the main thread at the start of the pop (68–75ms,
+    // Pixel 5, debug build). The stash still holds the content.
+    if (childCount == 0 && hasGoodStash) {
+      refreshStashRect()
+      stashedSnapshot?.let { return it }
+    }
     return captureSnapshotRaw()
   }
 
@@ -469,12 +528,17 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
    */
   private fun captureSnapshotRaw(): HeroSnapshot? {
     if (width <= 0 || height <= 0) return null
+    // `draw(Canvas)` re-enters `dispatchDraw`, whose rolling capture would render a second time.
+    val wasCapturing = capturing
+    capturing = true
     val bmp = try {
       val b = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
       drawContentUnclipped(Canvas(b))
       b
     } catch (_: Throwable) {
       null
+    } finally {
+      capturing = wasCapturing
     }
     return HeroSnapshot(
       bitmap = bmp,
@@ -616,6 +680,49 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     }
   }
 
+  /**
+   * Hash of an image-only hero's content: each ImageView's bitmap (identity and generation id),
+   * drawable alpha, visibility and alpha. Null unless every image is a plain [BitmapDrawable], so
+   * anything else keeps the time-throttled capture: React Native's own `<Image>` (Fresco) keeps one
+   * `RootDrawable` instance through its fade-in and across source changes, so its identity cannot
+   * tell a faint first fade frame from the finished image; a `TransitionDrawable` is mid
+   * cross-fade.
+   */
+  private fun contentSignature(): Int? {
+    var hash = 31 * width + height
+    var images = 0
+
+    fun visit(view: android.view.View): Boolean {
+      if (view is android.widget.ImageView) {
+        val drawable = view.drawable as? android.graphics.drawable.BitmapDrawable ?: return false
+        val bitmap = drawable.bitmap ?: return false
+        hash = 31 * hash + System.identityHashCode(view)
+        hash = 31 * hash + System.identityHashCode(bitmap)
+        hash = 31 * hash + bitmap.generationId
+        hash = 31 * hash + drawable.alpha
+        hash = 31 * hash + view.visibility
+        hash = 31 * hash + java.lang.Float.floatToIntBits(view.alpha)
+        images++
+        return true
+      }
+      if (view is android.view.ViewGroup) {
+        for (i in 0 until view.childCount) {
+          if (!visit(view.getChildAt(i))) return false
+        }
+        return true
+      }
+      return false
+    }
+
+    for (i in 0 until childCount) {
+      if (!visit(getChildAt(i))) return null
+    }
+    return if (images > 0) hash else null
+  }
+
+  private fun stashIsCurrent(signature: Int?): Boolean =
+    hasGoodStash && signature != null && signature == stashSignature
+
   /** Cached fallback set in `setHiddenForFlight` and the rolling `dispatchDraw`. */
   private var stashedSnapshot: HeroSnapshot? = null
 
@@ -626,6 +733,9 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
    * cold-launch blank-source fix).
    */
   private var hasGoodStash = false
+
+  /** [contentSignature] when [stashedSnapshot] was taken; null when unknown. */
+  private var stashSignature: Int? = null
 
   /**
    * True between `onDetachedFromWindow` and the next `onAttachedToWindow`.
