@@ -9,6 +9,7 @@ import android.graphics.Rect
 import android.os.SystemClock
 import android.view.Choreographer
 import android.view.View
+import android.view.ViewGroupOverlay
 import android.view.ViewOutlineProvider
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.DecelerateInterpolator
@@ -43,6 +44,72 @@ object FlightEngine {
   )
 
   /**
+   * A flight still on screen — geometric phase or soft-handoff fade — kept so a newer flight on
+   * the SAME hero key can take over from it instead of running on top of it.
+   *
+   * Without this, popping the detail screen while its open flight was still in the air (or inside its
+   * 180 ms handoff) ran two overlays of the same photo at once: the back-flight started from the detail hero's
+   * settled rect while the open one was elsewhere (a visible jump and a ghost), and the open
+   * flight's handoff then un-hid the list hero the back-flight had just hidden as ITS destination (the
+   * real list hero showing under the still-flying overlay).
+   */
+  private class ActiveFlight(
+    val key: String,
+    val container: FrameLayout,
+    val overlay: ViewGroupOverlay,
+    val sourceView: SharedHeroView?,
+    val dest: SharedHeroView,
+    val onAllDone: (() -> Unit)?,
+  ) {
+    var cancelMotion: (() -> Unit)? = null
+    var done = false
+  }
+
+  private val activeFlights = mutableListOf<ActiveFlight>()
+
+  private fun heroKey(view: SharedHeroView) = "${view.config.heroNamespace}::${view.config.heroId}"
+
+  /** Where [container] is on screen right now — its layout box under the per-frame scale/translation. */
+  private fun visibleGeometry(container: FrameLayout, backgroundColor: Int): Geometry? {
+    if (container.width <= 0 || container.height <= 0) return null
+    val w = container.width * container.scaleX
+    val h = container.height * container.scaleY
+    val cx = container.left + container.width / 2f + container.translationX
+    val cy = container.top + container.height / 2f + container.translationY
+    val rect = Rect(
+      (cx - w / 2f).toInt(),
+      (cy - h / 2f).toInt(),
+      (cx + w / 2f).toInt(),
+      (cy + h / 2f).toInt(),
+    )
+    val avgScale = (container.scaleX + container.scaleY) / 2f
+    return Geometry(rect, currentRadius(container) * avgScale, backgroundColor)
+  }
+
+  /**
+   * End [flight] now: stop its motion and fade, drop its overlay, settle its bookkeeping. Views the
+   * taking-over flight drives ([keep]) stay as they are — un-hiding one would show it under the new
+   * overlay; that flight reveals them when it lands. So does an old destination that has left the
+   * registry: it is the hero the newer flight was captured from (the detail hero on a pop
+   * that cut its open flight short), still on screen while its screen fades — showing it again
+   * doubled the photo behind the overlay flying back.
+   */
+  private fun interrupt(flight: ActiveFlight, keep: List<SharedHeroView?>) {
+    if (flight.done) return
+    flight.done = true
+    activeFlights.remove(flight)
+    flight.cancelMotion?.invoke()
+    flight.container.animate().cancel()
+    flight.overlay.remove(flight.container)
+    val source = flight.sourceView
+    if (source != null && keep.none { it === source }) source.setHiddenForFlight(false)
+    if (keep.none { it === flight.dest } && flight.dest.isRegisteredHero) flight.dest.setHiddenForFlight(false)
+    flight.dest.emitTransitionEnd()
+    flight.onAllDone?.invoke()
+    android.util.Log.d("SharedHeroFlight", "interrupted flight key=${flight.key} for a newer one")
+  }
+
+  /**
    * Runs a flight from a previously-captured [source] snapshot to a still-
    * mounted [dest] view. Capturing the source up-front lets the engine survive
    * the host navigator detaching/moving the original source during the push/pop.
@@ -75,10 +142,17 @@ object FlightEngine {
       onAllDone?.invoke()
       return
     }
-    val initial = if (source.rect.width() <= 0) {
-      Geometry(endGeo.rect, endGeo.cornerRadius, source.backgroundColor)
-    } else {
-      Geometry(source.rect, source.cornerRadius, source.backgroundColor)
+    // A flight of this same hero still on screen hands over: the new one starts exactly where its
+    // overlay is now (mid-air, or resting at its landing rect during the handoff fade), so the
+    // photo turns around instead of jumping to the source's rect and doubling up.
+    val superseded = activeFlights.filter { it.key == heroKey(dest) }
+    val takeover = superseded.lastOrNull()?.let { visibleGeometry(it.container, source.backgroundColor) }
+    superseded.forEach { interrupt(it, keep = listOf(dest, sourceView)) }
+
+    val initial = when {
+      takeover != null -> takeover
+      source.rect.width() <= 0 -> Geometry(endGeo.rect, endGeo.cornerRadius, source.backgroundColor)
+      else -> Geometry(source.rect, source.cornerRadius, source.backgroundColor)
     }
 
     // `zoom`/`auto` are reserved iOS 18+ system-zoom hints (v2); they alias to
@@ -194,6 +268,8 @@ object FlightEngine {
     measureAndLayout(container, initial.rect.left, initial.rect.top, initial.rect.right, initial.rect.bottom)
     overlay.add(container)
     android.util.Log.d("SharedHeroFlight", "container added rect=${initial.rect}")
+    val flight = ActiveFlight(heroKey(dest), container, overlay, sourceView, dest, onAllDone)
+    activeFlights.add(flight)
 
     dest.setHiddenForFlight(true)
     dest.emitTransitionStart()
@@ -204,13 +280,18 @@ object FlightEngine {
     //  2. Fade the snapshot out — the loaded dest emerges through the fade, or
     //     a gentle fade instead of a hard pop.
     //  3. Un-hide the source so its real content is in place on back.
-    val onComplete = {
+    // A flight taken over by a newer one (see [interrupt]) skips all of it.
+    val onComplete = onComplete@{
+      if (flight.done) return@onComplete
       dest.setHiddenForFlight(false)
       container.animate()
         .alpha(0f)
         .setDuration(180L)
         .setInterpolator(DecelerateInterpolator())
         .withEndAction {
+          if (flight.done) return@withEndAction
+          flight.done = true
+          activeFlights.remove(flight)
           overlay.remove(container)
           sourceView?.setHiddenForFlight(false)
           dest.emitTransitionEnd()
@@ -219,7 +300,7 @@ object FlightEngine {
         .start()
     }
 
-    if (cfg.usesSpring) {
+    flight.cancelMotion = if (cfg.usesSpring) {
       runSpringFlight(container, initial, endGeo, cfg, sourceImageView, destImageView, isMorph, onComplete)
     } else if (cfg.motionPath == "arc") {
       runArcFlight(container, initial, endGeo, cfg, sourceImageView, destImageView, isMorph, onComplete)
@@ -239,7 +320,7 @@ object FlightEngine {
     destView: View?,
     isMorph: Boolean,
     onComplete: () -> Unit,
-  ) {
+  ): () -> Unit {
     val duration = maxOf(50, cfg.duration).toLong()
     val applyFrame = setupOverlayTransform(container, initial, end, cfg, sourceView, destView, isMorph)
     // Seed the visual to the source rect before the animator starts so the
@@ -248,13 +329,14 @@ object FlightEngine {
     applyFrame(initial.rect.exactCenterX(), initial.rect.exactCenterY(), initial.rect.width(), initial.rect.height(), 0f)
 
     val interp = easing(cfg.easing)
-    runFlight(duration, interp) { t ->
+    val handle = runFlight(duration, interp) { t ->
       val cx = initial.rect.exactCenterX() + (end.rect.exactCenterX() - initial.rect.exactCenterX()) * t
       val cy = initial.rect.exactCenterY() + (end.rect.exactCenterY() - initial.rect.exactCenterY()) * t
       val w = (initial.rect.width() + (end.rect.width() - initial.rect.width()) * t).toInt()
       val h = (initial.rect.height() + (end.rect.height() - initial.rect.height()) * t).toInt()
       applyFrame(cx, cy, w, h, t)
     }.withEndAction(onComplete)
+    return { handle.cancelled = true }
   }
 
   // MARK: - Choreographer-based animator with bounded per-frame delta.
@@ -343,7 +425,7 @@ object FlightEngine {
     destView: View?,
     isMorph: Boolean,
     onComplete: () -> Unit,
-  ) {
+  ): () -> Unit {
     val applyFrame = setupOverlayTransform(container, initial, end, cfg, sourceView, destView, isMorph)
     applyFrame(initial.rect.exactCenterX(), initial.rect.exactCenterY(), initial.rect.width(), initial.rect.height(), 0f)
 
@@ -372,11 +454,17 @@ object FlightEngine {
       val h = (initial.rect.height() + (end.rect.height() - initial.rect.height()) * t).toInt().coerceAtLeast(1)
       applyFrame(cx, cy, w, h, t)
     }
+    var cancelled = false
     spring.addEndListener { _, _, _, _ ->
+      if (cancelled) return@addEndListener
       applyFrame(end.rect.exactCenterX(), end.rect.exactCenterY(), end.rect.width(), end.rect.height(), 1f)
       onComplete()
     }
     spring.start()
+    return {
+      cancelled = true
+      spring.cancel()
+    }
   }
 
   /** Convert SpringConfig{damping, stiffness, mass} → DynamicAnimation damping ratio. */
@@ -399,7 +487,7 @@ object FlightEngine {
     destView: View?,
     isMorph: Boolean,
     onComplete: () -> Unit,
-  ) {
+  ): () -> Unit {
     val duration = maxOf(50, cfg.duration).toLong()
     val applyFrame = setupOverlayTransform(container, initial, end, cfg, sourceView, destView, isMorph)
     applyFrame(initial.rect.exactCenterX(), initial.rect.exactCenterY(), initial.rect.width(), initial.rect.height(), 0f)
@@ -414,7 +502,7 @@ object FlightEngine {
     val controlY = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) startCy else endCy
 
     val interp = arcPathInterpolator(cfg.easing)
-    runFlight(duration, interp) { t ->
+    val handle = runFlight(duration, interp) { t ->
       val it = 1f - t
       val cx = it * it * startCx + 2f * it * t * controlX + t * t * endCx
       val cy = it * it * startCy + 2f * it * t * controlY + t * t * endCy
@@ -422,6 +510,7 @@ object FlightEngine {
       val h = (initial.rect.height() + (end.rect.height() - initial.rect.height()) * t).toInt()
       applyFrame(cx, cy, w, h, t)
     }.withEndAction(onComplete)
+    return { handle.cancelled = true }
   }
 
   // MARK: - Frame application & helpers.

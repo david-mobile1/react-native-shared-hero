@@ -101,7 +101,11 @@ class SharedHeroViewManager :
    */
   override fun onDropViewInstance(view: SharedHeroView) {
     super.onDropViewInstance(view)
-    view.resetHeroState()
+    // A dropped view is never mounted again, but it can still be ON SCREEN for a while — inside
+    // its screen's exit fade. One hidden for a flight (the detail hero whose open flight a pop
+    // cut short) must stay hidden there: un-hiding it doubled the photo behind the overlay that
+    // now carries it back.
+    view.resetHeroState(restoreVisibility = false)
   }
 
   override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> {

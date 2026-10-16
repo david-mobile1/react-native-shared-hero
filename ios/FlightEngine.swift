@@ -29,6 +29,60 @@ import UIKit
     let backgroundColor: UIColor
   }
 
+  /// A flight still on screen — geometric phase or soft-handoff fade — kept so a newer flight on
+  /// the SAME hero key can take over from it instead of running on top of it: two overlays of one
+  /// photo at once read as a jump plus a ghost, and the older flight's handoff would un-hide a view
+  /// the newer one had just hidden as its own destination.
+  private final class ActiveFlight {
+    let key: String
+    let flightView: UIView
+    weak var sourceView: SharedHeroViewImpl?
+    weak var dest: SharedHeroViewImpl?
+    let onAllDone: (() -> Void)?
+    var stopMotion: (() -> Void)?
+    var done = false
+
+    init(key: String, flightView: UIView, sourceView: SharedHeroViewImpl?, dest: SharedHeroViewImpl, onAllDone: (() -> Void)?) {
+      self.key = key
+      self.flightView = flightView
+      self.sourceView = sourceView
+      self.dest = dest
+      self.onAllDone = onAllDone
+    }
+  }
+
+  private var activeFlights: [ActiveFlight] = []
+
+  /// Whether a flight into `dest` is still on screen, so a new flight on the same hero can take it
+  /// over (see `interrupt`) rather than be suppressed as a duplicate.
+  func canTakeOver(dest: SharedHeroViewImpl) -> Bool {
+    let key = HeroRegistry.key(for: dest)
+    return activeFlights.contains { !$0.done && $0.key == key && $0.dest === dest }
+  }
+
+  /// End `flight` now: stop its motion and fade, drop its overlay, settle its bookkeeping. Views the
+  /// taking-over flight drives (`keep`) stay as they are — that flight reveals them when it lands. So
+  /// does an old destination that has left the registry: it is the hero the newer flight was
+  /// captured from (the detail hero on a pop that cut its open flight short).
+  private func interrupt(_ flight: ActiveFlight, keeping keep: [SharedHeroViewImpl?]) {
+    guard !flight.done else { return }
+    flight.done = true
+    activeFlights.removeAll { $0 === flight }
+    flight.stopMotion?()
+    flight.flightView.layer.removeAllAnimations()
+    flight.flightView.removeFromSuperview()
+    OverlayHost.shared.releaseHost()
+    if let source = flight.sourceView, !keep.contains(where: { $0 === source }) {
+      source.setHiddenForFlight(false)
+    }
+    if let dest = flight.dest, !keep.contains(where: { $0 === dest }), dest.isRegisteredHero {
+      dest.setHiddenForFlight(false)
+    }
+    flight.dest?.emitTransitionEnd()
+    flight.onAllDone?()
+    heroLog(HeroLog.flight, "interrupted flight key=\(flight.key) for a newer one")
+  }
+
   /// Runs a flight from a previously-captured [source] snapshot to a still-
   /// mounted [dest] view. Capturing the source up-front lets the engine survive
   /// the host navigator detaching / moving the original source mid-transition.
@@ -73,7 +127,23 @@ import UIKit
       onAllDone?()
       return
     }
-    let initial = ViewGeometry(
+    // A flight of this same hero still on screen hands over: the new one starts exactly where that
+    // overlay is now (mid-air, or resting at its landing frame during the handoff fade), so the
+    // photo turns around instead of jumping to the source's frame and doubling up.
+    let key = HeroRegistry.key(for: dest)
+    let superseded = activeFlights.filter { $0.key == key }
+    var takeover: ViewGeometry?
+    if let last = superseded.last {
+      let visible = last.flightView.layer.presentation() ?? last.flightView.layer
+      takeover = ViewGeometry(
+        frame: visible.frame,
+        cornerRadius: visible.cornerRadius,
+        backgroundColor: source.backgroundColor
+      )
+    }
+    superseded.forEach { interrupt($0, keeping: [dest, sourceView]) }
+
+    let initial = takeover ?? ViewGeometry(
       frame: source.frame,
       cornerRadius: source.cornerRadius,
       backgroundColor: source.backgroundColor
@@ -158,6 +228,8 @@ import UIKit
 
     overlay.addSubview(flightView)
     heroLog(HeroLog.flight, "flightView added frame=\(flightView.frame) subviews=\(flightView.subviews.count) overlaySubviews=\(overlay.subviews.count)")
+    let flight = ActiveFlight(key: key, flightView: flightView, sourceView: sourceView, dest: dest, onAllDone: onAllDone)
+    activeFlights.append(flight)
 
     dest.setHiddenForFlight(true)
     dest.emitTransitionStart()
@@ -167,8 +239,9 @@ import UIKit
     // flight view out (so the user sees the dest emerge through the fade, not a
     // hard pop), then un-hide the source so its real content is in place for the
     // back-navigation (the previous screen is off-screen by now, so it's
-    // invisible).
-    let reveal: () -> Void = { [weak dest, weak sourceView] in
+    // invisible). A flight taken over by a newer one (see `interrupt`) skips all of it.
+    let reveal: () -> Void = { [weak self, weak dest, weak sourceView] in
+      guard !flight.done else { return }
       dest?.setHiddenForFlight(false)
       UIView.animate(
         withDuration: 0.18,
@@ -178,6 +251,9 @@ import UIKit
           flightView.alpha = 0
         },
         completion: { _ in
+          guard !flight.done else { return }
+          flight.done = true
+          self?.activeFlights.removeAll { $0 === flight }
           flightView.removeFromSuperview()
           sourceView?.setHiddenForFlight(false)
           OverlayHost.shared.releaseHost()
@@ -190,7 +266,7 @@ import UIKit
     let completion: () -> Void = reveal
 
     if cfg.motionPath == "arc" {
-      runArcFlight(
+      flight.stopMotion = runArcFlight(
         flightView: flightView,
         from: initial,
         to: endGeo,
@@ -201,7 +277,7 @@ import UIKit
         completion: completion
       )
     } else {
-      runLinearFlight(
+      flight.stopMotion = runLinearFlight(
         flightView: flightView,
         from: initial,
         to: endGeo,
@@ -225,7 +301,7 @@ import UIKit
     destSnapshot: UIView?,
     isMorph: Bool,
     completion: @escaping () -> Void
-  ) {
+  ) -> () -> Void {
     let duration: TimeInterval = cfg.usesSpring ? 0.32 : max(0.05, TimeInterval(cfg.duration) / 1000.0)
 
     // UIViewPropertyAnimator does NOT animate `layer.cornerRadius` — without an
@@ -263,6 +339,13 @@ import UIKit
     }
     animator.addCompletion { _ in completion() }
     animator.startAnimation()
+    // `stopAnimation(true)` leaves the view where it is and skips the completion. Only while it is
+    // still running: during the handoff fade the animator has already finished.
+    return {
+      if animator.state == .active {
+        animator.stopAnimation(true)
+      }
+    }
   }
 
   // MARK: - Arc path (driven by CADisplayLink for per-frame control).
@@ -276,7 +359,7 @@ import UIKit
     destSnapshot: UIView?,
     isMorph: Bool,
     completion: @escaping () -> Void
-  ) {
+  ) -> () -> Void {
     let duration: TimeInterval = max(0.05, TimeInterval(cfg.duration) / 1000.0)
     let startCenter = CGPoint(x: initial.frame.midX, y: initial.frame.midY)
     let endCenter = CGPoint(x: endGeo.frame.midX, y: endGeo.frame.midY)
@@ -313,6 +396,7 @@ import UIKit
         completion()
       }
     }
+    return { driver.stop() }
   }
 
   // MARK: - Helpers.

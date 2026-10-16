@@ -141,8 +141,12 @@ import UIKit
   /// Destinations with an *active* flight (between fire and completion). We
   /// refuse a second flight for a dest while one runs, catching any
   /// duplicate-trigger path (e.g. host navigator re-emitting register/layout
-  /// events mid-transition).
-  private var currentlyFlying: Set<ObjectIdentifier> = []
+  /// events mid-transition) — unless `FlightEngine` can take the running flight
+  /// over (see `blocksNewFlight`).
+  ///
+  /// Counted, not a set: a takeover interrupts the old flight, whose `onAllDone`
+  /// then removes its mark — it must not remove the new flight's mark with it.
+  private var currentlyFlying = FlightCounter()
 
   /// Unregister calls PENDING commit — the view called `didMoveToWindow(nil)`
   /// but we haven't yet run the side-effects (capture snap, fire back-flights,
@@ -261,7 +265,7 @@ import UIKit
         // transiently parallax-shifts a sibling's origin, which must not read as
         // an in-place move. Skip if a flight is running or a baseline is queued.
         if pendingInPlace[viewId] == nil,
-           !currentlyFlying.contains(viewId),
+           !blocksNewFlight(viewId, dest: view),
            let baseline = pending.baseline,
            baseline.settledFrame != .zero {
           pendingInPlace[viewId] = PendingInPlace(baseline: baseline, attemptsLeft: inPlaceMaxAttempts)
@@ -292,7 +296,7 @@ import UIKit
     //
     // Runs AFTER the churn-cancel check above, so a genuine reparent doesn't clear
     // these — only true new-view registrations.
-    currentlyFlying.remove(viewId)
+    currentlyFlying.clear(viewId)
     alreadyFlighted.remove(viewId)
     pendingFlights.removeValue(forKey: viewId)
     pendingInPlace.removeValue(forKey: viewId)
@@ -715,8 +719,9 @@ import UIKit
     guard let p = pendingInPlace[viewId] else { return }
 
     // A flight is already running on this instance (rapid toggling) — drop
-    // the watch; the running flight lands at the real layout.
-    if currentlyFlying.contains(viewId) {
+    // the watch; the running flight lands at the real layout. Unless the new
+    // flight can take the running one over mid-air.
+    if blocksNewFlight(viewId, dest: view) {
       pendingInPlace.removeValue(forKey: viewId)
       return
     }
@@ -804,7 +809,7 @@ import UIKit
         // A flight may have started meanwhile (rapid toggling). Bail rather than
         // stacking overlays — the view is already at its real layout, so the worst
         // case is the latest toggle lands without animation.
-        if currentlyFlying.contains(viewId) {
+        if blocksNewFlight(viewId, dest: view) {
           heroLog(HeroLog.registry, "in-place skip (already flying) view=\(Self.id(view))")
           return
         }
@@ -941,7 +946,7 @@ import UIKit
     if canFire {
       // Suppress duplicate firing — if a previous flight is still animating, drop
       // this one so we don't stack overlays / re-hide the source mid-flight.
-      if currentlyFlying.contains(key) {
+      if blocksNewFlight(key, dest: dest) {
         heroLog(HeroLog.registry, "DUPLICATE FLIGHT SUPPRESSED dest=\(Self.id(dest))")
         pendingFlights.removeValue(forKey: key)
         pending.source?.setHiddenForFlight(false)
@@ -1101,7 +1106,7 @@ import UIKit
       // (settled won't match the stale hint) fall through to `queuePendingFlight`.
       let destId = ObjectIdentifier(dest)
       if let hint = destFrameHint,
-         !currentlyFlying.contains(destId),
+         !blocksNewFlight(destId, dest: dest),
          dest.contentView.window != nil {
         let settled = dest.settledWindowFrame()
         let tol = hintMatchTolerance
@@ -1141,6 +1146,13 @@ import UIKit
   }
 
   // MARK: - Helpers
+
+  /// Whether a running flight into `dest` (marked under `id`) stops a new one. Not when
+  /// `FlightEngine` can take it over: the new flight then starts where the running one's
+  /// overlay is, instead of being dropped (rapid in-place toggles, a pop mid-open-flight).
+  private func blocksNewFlight(_ id: ObjectIdentifier, dest: SharedHeroViewImpl) -> Bool {
+    return currentlyFlying.contains(id) && !FlightEngine.shared.canTakeOver(dest: dest)
+  }
 
   static func key(for view: SharedHeroViewImpl) -> String {
     return "\(view.config.heroNamespace)::\(view.config.heroId)"
@@ -1186,6 +1198,29 @@ struct SnapshotLRU {
   private mutating func touch(_ key: String) {
     order.removeAll { $0 == key }
     order.append(key)
+  }
+}
+
+/// Per-destination count of running flights for `HeroRegistry.currentlyFlying`.
+struct FlightCounter {
+  private var counts: [ObjectIdentifier: Int] = [:]
+
+  func contains(_ id: ObjectIdentifier) -> Bool {
+    return (counts[id] ?? 0) > 0
+  }
+
+  mutating func insert(_ id: ObjectIdentifier) {
+    counts[id, default: 0] += 1
+  }
+
+  mutating func remove(_ id: ObjectIdentifier) {
+    guard let n = counts[id] else { return }
+    counts[id] = n > 1 ? n - 1 : nil
+  }
+
+  /// Drops every mark for `id` — a recycled address now naming a new view.
+  mutating func clear(_ id: ObjectIdentifier) {
+    counts[id] = nil
   }
 }
 

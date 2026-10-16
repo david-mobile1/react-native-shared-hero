@@ -50,6 +50,10 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
   /** Becomes true once we've registered with the registry. */
   private var registered = false
 
+  /** Still taking part in flights — registered with the registry, on the window and enabled. */
+  val isRegisteredHero: Boolean
+    get() = registered
+
   /**
    * The window-coordinate frame this view will occupy once any in-progress
    * ancestor animations finish. See `settledWindowRect()` for details.
@@ -70,8 +74,9 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     stashedSnapshot = null
     hasGoodStash = false
     detaching = false
-    if (hiddenForBackFlight) {
+    if (hiddenForBackFlight || restoreVisibilityOnAttach) {
       hiddenForBackFlight = false
+      restoreVisibilityOnAttach = false
       visibility = VISIBLE
       alpha = 1f
     }
@@ -173,7 +178,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
    * an old bitmap, or land at the wrong settled geometry. Mirrors the
    * registry-side cleanup in `HeroRegistry.register`.
    */
-  fun resetHeroState() {
+  fun resetHeroState(restoreVisibility: Boolean = true) {
     if (registered) {
       HeroRegistry.unregister(this)
       registered = false
@@ -193,8 +198,14 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     config.returnFlightEnabled = true
     hiddenForFlight = false
     hiddenForBackFlight = false
-    visibility = VISIBLE
-    alpha = 1f
+    if (restoreVisibility) {
+      restoreVisibilityOnAttach = false
+      visibility = VISIBLE
+      alpha = 1f
+    } else if (visibility != VISIBLE || alpha < 1f) {
+      // Left hidden for the exit fade; shown again if Fabric re-attaches the view.
+      restoreVisibilityOnAttach = true
+    }
     stashedSnapshot = null
     hasGoodStash = false
     cornerRadiusPx = 0f
@@ -513,6 +524,9 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
   }
 
   private var hiddenForBackFlight = false
+
+  /** Set by `resetHeroState(restoreVisibility = false)` on a view it left hidden — see there. */
+  private var restoreVisibilityOnAttach = false
 
   /**
    * Hide this outgoing view once the flight carrying it back has started. It has left the window,
