@@ -90,6 +90,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     if (registered) {
       HeroRegistry.unregister(this)
       registered = false
+      registeredKey = null
     }
     super.onDetachedFromWindow()
   }
@@ -167,6 +168,7 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     if (registered) {
       HeroRegistry.unregister(this)
       registered = false
+      registeredKey = null
     }
     config.heroId = ""
     config.heroNamespace = "default"
@@ -189,15 +191,39 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     backgroundColorInt = Color.TRANSPARENT
   }
 
+  /**
+   * The `(namespace, id)` key this view is filed under in the registry. The prop setters write the
+   * NEW id into [config] before [onConfigChanged] runs, so the registry can no longer derive the
+   * old key from the view.
+   */
+  private var registeredKey: String? = null
+
   private fun syncRegistration() {
     val shouldRegister =
       isAttachedToWindow && config.enabled && config.heroId.isNotEmpty()
+    val key = "${config.heroNamespace}::${config.heroId}"
+    val oldKey = registeredKey
+    if (registered && oldKey != null && oldKey != key) {
+      // A recycled list cell handed another item (Legend List `recycleItems`): the same view now
+      // shows different content under a different id. Unregistering under the NEW key missed the
+      // old bucket, which kept this view as a live twin of the id it no longer shows — the next hero
+      // to register that id flew THIS view's current photo across the window ("ghost" images over
+      // the header after a fling in a recycling grid). Its old id did not leave, it was renamed: no
+      // back-flight, and its stash is of the old content.
+      HeroRegistry.forget(this, oldKey)
+      registered = false
+      registeredKey = null
+      stashedSnapshot = null
+      hasGoodStash = false
+    }
     if (shouldRegister && !registered) {
       HeroRegistry.register(this)
       registered = true
+      registeredKey = key
     } else if (!shouldRegister && registered) {
       HeroRegistry.unregister(this)
       registered = false
+      registeredKey = null
     } else if (shouldRegister && registered) {
       HeroRegistry.notifyConfigChanged(this)
     }
