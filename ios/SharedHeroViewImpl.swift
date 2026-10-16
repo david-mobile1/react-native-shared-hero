@@ -145,6 +145,7 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
     contentView.superview?.alpha = 1
     savedShimAlpha = 1
     stashedSnapshot = nil
+    stashCapturedUnderZoom = false
     lastStableWindowFrame = .zero
     lastStableSettledFrame = .zero
   }
@@ -196,6 +197,19 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
   func inPlaceBaselineSnapshot() -> HeroSnapshot? {
     guard let stash = captureOrCachedSnapshot() else { return nil }
     guard lastStableWindowFrame != .zero else { return stash }
+    // Closing a pinch-zoomed photo: the stash was taken on its way off the window with the zoom
+    // applied, so its frame is the one on screen. The layout-derived stable frame knows nothing of
+    // the zoom — flying from it shrank the photo to its unzoomed box before it moved at all.
+    if stashCapturedUnderZoom {
+      return stash
+    }
+    // A view moved by an ancestor's SCROLL (a pager page swiped onto the screen) gets no new
+    // layout metrics, so its stable frame can still be the off-screen one it was laid out at,
+    // while the stash was captured where it really is. Trust the stash then.
+    let screen = UIScreen.main.bounds
+    if !lastStableWindowFrame.intersects(screen) && stash.frame.intersects(screen) {
+      return stash
+    }
     return HeroSnapshot(
       image: stash.image,
       frame: lastStableWindowFrame,
@@ -400,6 +414,29 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
   /// always have a usable source even when a live render would return empty.
   private var stashedSnapshot: HeroSnapshot?
 
+  /// Whether `stashedSnapshot` was rendered while a scaled transform sat between this view and its
+  /// screen — a pinch-zoomed photo. Its live `frame` is then the zoomed one the user sees, and
+  /// `inPlaceBaselineSnapshot()` must keep it rather than swap in the unzoomed layout frame.
+  private var stashCapturedUnderZoom = false
+
+  /// A scaled or rotated transform on a layer between this view and its `RNSScreenView` (content
+  /// zoom), as opposed to the screen-level transforms navigators animate, which stop the walk.
+  private func isUnderContentZoom() -> Bool {
+    guard let windowLayer = contentView.window?.layer else { return false }
+    var current: CALayer? = contentView.layer
+    while let layer = current, layer !== windowLayer {
+      if let owner = layer.delegate as? UIView, String(describing: type(of: owner)) == "RNSScreenView" {
+        return false
+      }
+      let t = layer.transform
+      if abs(t.m11 - 1) > 0.001 || abs(t.m22 - 1) > 0.001 || abs(t.m12) > 0.001 || abs(t.m21) > 0.001 {
+        return true
+      }
+      current = layer.superlayer
+    }
+    return false
+  }
+
   /// Literal render of the view's current state; `nil` if off-window or zero
   /// bounds. Use `captureSnapshot()` for the stash-aware version (falls back to
   /// the stash when a concurrent flight has us hidden).
@@ -428,6 +465,7 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
       backgroundColor: effectiveBackgroundColor()
     )
     stashedSnapshot = snap
+    stashCapturedUnderZoom = isUnderContentZoom()
     return snap
   }
 

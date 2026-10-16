@@ -86,6 +86,10 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
     // tick the dest mounts, so the registry has no live source and falls back
     // to our snapshot — a blank one flew an invisible bitmap ("goes blank")
     // with the real image only appearing at the end ("snap").
+    // Still attached here, so the stash's rect can be re-read where the view is now: an ancestor
+    // transform (a swipe-down drag, a pinch zoom) never redraws this view, and the back-flight
+    // must start from where the user let go, not from where the stash was last captured.
+    if (hasGoodStash) refreshStashRect()
     detaching = true
     if (registered) {
       HeroRegistry.unregister(this)
@@ -310,7 +314,52 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
   fun windowRect(): Rect {
     val out = IntArray(2)
     getLocationInWindow(out)
-    return Rect(out[0], out[1], out[0] + width, out[1] + height)
+    if (width <= 0 || height <= 0 || !hasTransformedAncestry()) {
+      return Rect(out[0], out[1], out[0] + width, out[1] + height)
+    }
+    // `getLocationInWindow` maps the ORIGIN through every ancestor matrix but the size is the
+    // untransformed one, so under a scale (a pinch-zoomed pager page) the rect was a 1:1 box at the
+    // zoomed origin — far off screen — and the back-flight started there instead of from the photo
+    // the user was looking at. Map all four corners the same way and take their bounds.
+    val pts = floatArrayOf(0f, 0f, width.toFloat(), 0f, 0f, height.toFloat(), width.toFloat(), height.toFloat())
+    var v: android.view.View = this
+    while (true) {
+      if (!v.matrix.isIdentity) v.matrix.mapPoints(pts)
+      for (i in pts.indices step 2) {
+        pts[i] += v.left.toFloat()
+        pts[i + 1] += v.top.toFloat()
+      }
+      val parent = v.parent as? android.view.View ?: break
+      for (i in pts.indices step 2) {
+        pts[i] -= parent.scrollX.toFloat()
+        pts[i + 1] -= parent.scrollY.toFloat()
+      }
+      v = parent
+    }
+    // Same frame of reference as `getLocationInWindow` (it also folds in the window's pan offset).
+    val dx = out[0] - pts[0]
+    val dy = out[1] - pts[1]
+    var minX = Float.MAX_VALUE
+    var minY = Float.MAX_VALUE
+    var maxX = -Float.MAX_VALUE
+    var maxY = -Float.MAX_VALUE
+    for (i in pts.indices step 2) {
+      minX = minOf(minX, pts[i] + dx)
+      maxX = maxOf(maxX, pts[i] + dx)
+      minY = minOf(minY, pts[i + 1] + dy)
+      maxY = maxOf(maxY, pts[i + 1] + dy)
+    }
+    return Rect(minX.toInt(), minY.toInt(), maxX.toInt(), maxY.toInt())
+  }
+
+  /** Whether this view or an ancestor carries a matrix transform (scale, rotation, translation). */
+  private fun hasTransformedAncestry(): Boolean {
+    var v: android.view.View? = this
+    while (v != null) {
+      if (!v.matrix.isIdentity) return true
+      v = v.parent as? android.view.View
+    }
+    return false
   }
 
   /**
@@ -425,6 +474,11 @@ class SharedHeroView(context: Context?) : ReactViewGroup(context) {
    * to fly instead of an invisible overlay.
    */
   fun renderContentForFlightFallback(): HeroSnapshot? = captureSnapshotRaw()
+
+  private fun refreshStashRect() {
+    val stash = stashedSnapshot ?: return
+    stashedSnapshot = stash.copy(rect = windowRect())
+  }
 
   /** Cached fallback set in `setHiddenForFlight` and the rolling `dispatchDraw`. */
   private var stashedSnapshot: HeroSnapshot? = null
