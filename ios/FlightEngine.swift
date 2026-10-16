@@ -53,6 +53,13 @@ import UIKit
 
   private var activeFlights: [ActiveFlight] = []
 
+  /// Whether a flight into `dest` is still on screen, so a new flight on the same hero can take it
+  /// over (see `interrupt`) rather than be suppressed as a duplicate.
+  func canTakeOver(dest: SharedHeroViewImpl) -> Bool {
+    let key = HeroRegistry.key(for: dest)
+    return activeFlights.contains { !$0.done && $0.key == key && $0.dest === dest }
+  }
+
   /// End `flight` now: stop its motion and fade, drop its overlay, settle its bookkeeping. Views the
   /// taking-over flight drives (`keep`) stay as they are — that flight reveals them when it lands. So
   /// does an old destination that has left the registry: it is the hero the newer flight was

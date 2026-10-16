@@ -531,8 +531,11 @@ public typealias SharedHeroEventEmitter = (_ id: String, _ namespace: String) ->
   ///    flies the last known content instead (right position/bitmap, a few ms
   ///    stale).
   func captureSnapshot() -> HeroSnapshot? {
-    if hiddenForFlight, let stash = stashedSnapshot {
-      return stash
+    // Never render while hidden for a flight: the render is transparent. A hero popped while its
+    // open flight is still in the air has no stash yet; nil lets the registry fall back to
+    // `lastKnownSnapshots`.
+    if hiddenForFlight {
+      return stashedSnapshot
     }
     if let fresh = captureSnapshotRaw() {
       return fresh
