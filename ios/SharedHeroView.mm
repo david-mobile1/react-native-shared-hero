@@ -11,7 +11,12 @@
 
 // Swift-generated header from the SharedHero module. Provides
 // SharedHeroViewImpl and SharedHeroConfig.
+// Under `use_frameworks!` the header is only reachable through the framework's module path.
+#if __has_include(<SharedHero/SharedHero-Swift.h>)
+#import <SharedHero/SharedHero-Swift.h>
+#else
 #import "SharedHero-Swift.h"
+#endif
 
 using namespace facebook::react;
 
