@@ -212,6 +212,10 @@ private class HeroStylePropDelegate(
   private val inner: ViewManagerDelegate<SharedHeroView>,
 ) : ViewManagerDelegate<SharedHeroView> {
 
+  // RN 0.82's ViewManagerDelegate hides the Kotlin setProperty behind a @JvmName, so this override
+  // compiles to the same JVM name as the interface's Java-compat default — RN's own
+  // BaseViewManagerDelegate suppresses the identical clash.
+  @Suppress("ACCIDENTAL_OVERRIDE")
   override fun setProperty(view: SharedHeroView, propName: String, value: Any?) {
     when (propName) {
       // Border radius — uniform + all 12 per-corner variants.
@@ -264,6 +268,7 @@ private class HeroStylePropDelegate(
     }
   }
 
+  @Suppress("ACCIDENTAL_OVERRIDE")
   override fun receiveCommand(
     view: SharedHeroView,
     commandName: String,
