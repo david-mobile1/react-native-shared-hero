@@ -327,6 +327,7 @@ import UIKit
       view.setHiddenForFlight(true)
     }
 
+    InteractiveStackPop.shared.handOver(to: view)
     pendingKeys.insert(key)
     scheduleMatchPass()
   }
