@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <radialGradient id="bgGlow1" cx="0.82" cy="0.18" r="0.72">
+      <stop offset="0" stop-color="#6366F1" stop-opacity="0.32" />
+      <stop offset="0.5" stop-color="#38BDF8" stop-opacity="0.12" />
+      <stop offset="1" stop-color="#0B0F19" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="bgGlow2" cx="0.18" cy="0.88" r="0.55">
+      <stop offset="0" stop-color="#F59E0B" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#0B0F19" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#818CF8" />
+      <stop offset="0.55" stop-color="#6366F1" />
+      <stop offset="1" stop-color="#38BDF8" />
+    </linearGradient>
+    <linearGradient id="heroCardGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4F46E5" />
+      <stop offset="0.5" stop-color="#6366F1" />
+      <stop offset="1" stop-color="#0EA5E9" />
+    </linearGradient>
+    <linearGradient id="arcStroke" x1="740" y1="430" x2="995" y2="195" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F59E0B" />
+      <stop offset="0.5" stop-color="#38BDF8" />
+      <stop offset="1" stop-color="#818CF8" />
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="#0B0F19" />
+  <rect width="1200" height="630" fill="url(#bgGlow1)" />
+  <rect width="1200" height="630" fill="url(#bgGlow2)" />
+
+  <!-- Subtle grid -->
+  <g stroke="#1E293B" stroke-width="1" opacity="0.55">
+    <line x1="0" y1="120" x2="1200" y2="120" />
+    <line x1="0" y1="260" x2="1200" y2="260" />
+    <line x1="0" y1="400" x2="1200" y2="400" />
+    <line x1="0" y1="540" x2="1200" y2="540" />
+    <line x1="680" y1="0" x2="680" y2="630" />
+    <line x1="860" y1="0" x2="860" y2="630" />
+    <line x1="1040" y1="0" x2="1040" y2="630" />
+  </g>
+
+  <!-- Brand badge top-left -->
+  <g transform="translate(76, 62)">
+    <rect x="0" y="0" width="48" height="48" rx="12" fill="#131B2E" stroke="#312E81" stroke-width="1.5" />
+    <rect x="8" y="26" width="13" height="13" rx="3" stroke="#818CF8" stroke-width="2" stroke-dasharray="2.5 2" fill="#6366F1" fill-opacity="0.2" />
+    <rect x="21" y="9" width="19" height="19" rx="5.5" fill="url(#brandGrad)" />
+    <path d="M14.5 32.5C14.5 20 20 15 30 17" stroke="#F59E0B" stroke-width="2.2" stroke-linecap="round" />
+    <text x="64" y="31" fill="#94A3B8" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="600" letter-spacing="-0.01em">
+      react-native-shared-hero
+    </text>
+  </g>
+
+  <!-- Main Heading -->
+  <text x="76" y="210" fill="#F8FAFC" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="64" font-weight="800" letter-spacing="-0.03em">
+    React Native
+  </text>
+  <text x="76" y="288" fill="url(#brandGrad)" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="68" font-weight="800" letter-spacing="-0.03em">
+    Shared Hero
+  </text>
+
+  <!-- Tagline -->
+  <text x="76" y="356" fill="#CBD5E1" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="26" font-weight="500">
+    Window-level shared element transitions for Fabric.
+  </text>
+  <text x="76" y="394" fill="#94A3B8" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="24" font-weight="400">
+    Router-agnostic &#183; Snapshot &amp; Morph &#183; 60/120 fps &#183; iOS &amp; Android
+  </text>
+
+  <!-- Feature Pills -->
+  <g transform="translate(76, 438)" font-family="JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace" font-size="16" font-weight="600">
+    <rect x="0" y="0" width="152" height="40" rx="20" fill="#1E1B4B" stroke="#4F46E5" stroke-width="1.5" />
+    <text x="76" y="25" fill="#A5B4FC" text-anchor="middle">mode="morph"</text>
+
+    <rect x="166" y="0" width="182" height="40" rx="20" fill="#0C2A3E" stroke="#0284C7" stroke-width="1.5" />
+    <text x="257" y="25" fill="#7DD3FC" text-anchor="middle">motionPath="arc"</text>
+
+    <rect x="362" y="0" width="174" height="40" rx="20" fill="#271C10" stroke="#D97706" stroke-width="1.5" />
+    <text x="449" y="25" fill="#FCD34D" text-anchor="middle">spring physics</text>
+  </g>
+
+  <!-- Footer URL -->
+  <text x="76" y="566" fill="#818CF8" font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="21" font-weight="600">
+    maitrungduc1410.github.io/react-native-shared-hero
+  </text>
+
+  <!-- Right Side Visual: Two phone screens + flying morphing hero card -->
+  <!-- Source Phone (left-bottom of right area) -->
+  <g transform="translate(675, 215)">
+    <rect x="0" y="0" width="190" height="330" rx="26" fill="#111827" stroke="#334155" stroke-width="2.5" />
+    <rect x="64" y="10" width="62" height="6" rx="3" fill="#334155" />
+    <rect x="16" y="32" width="90" height="10" rx="5" fill="#334155" />
+    <!-- Ghosted source slot -->
+    <rect x="16" y="56" width="158" height="96" rx="12" fill="#1E1B4B" fill-opacity="0.55" stroke="#6366F1" stroke-width="2" stroke-dasharray="5 4" />
+    <text x="95" y="109" fill="#818CF8" font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" text-anchor="middle">id="card-42"</text>
+    <!-- Other list items -->
+    <rect x="16" y="166" width="158" height="62" rx="10" fill="#1E293B" />
+    <rect x="16" y="240" width="158" height="62" rx="10" fill="#1E293B" />
+  </g>
+
+  <!-- Destination Phone (right-top of right area) -->
+  <g transform="translate(915, 70)">
+    <rect x="0" y="0" width="220" height="390" rx="30" fill="#111827" stroke="#475569" stroke-width="2.5" />
+    <rect x="74" y="12" width="72" height="6" rx="3" fill="#334155" />
+    <!-- Destination hero header -->
+    <rect x="16" y="34" width="188" height="176" rx="22" fill="url(#heroCardGrad)" />
+    <circle cx="62" cy="84" r="18" fill="#0F172A" fill-opacity="0.4" />
+    <path d="M26 192l48-58 36 38 30-32 54 52H26z" fill="#0F172A" fill-opacity="0.45" />
+    <rect x="30" y="166" width="96" height="12" rx="6" fill="#F8FAFC" fill-opacity="0.9" />
+    <!-- Detail lines -->
+    <rect x="16" y="228" width="140" height="14" rx="7" fill="#475569" />
+    <rect x="16" y="254" width="180" height="10" rx="5" fill="#334155" />
+    <rect x="16" y="274" width="166" height="10" rx="5" fill="#334155" />
+    <rect x="16" y="294" width="128" height="10" rx="5" fill="#334155" />
+    <rect x="16" y="330" width="188" height="36" rx="10" fill="#312E81" />
+  </g>
+
+  <!-- Mid-flight morphing card on window overlay -->
+  <g transform="translate(790, 175) rotate(-6)">
+    <rect x="0" y="0" width="168" height="132" rx="18" fill="url(#heroCardGrad)" stroke="#F8FAFC" stroke-width="2" stroke-opacity="0.85" />
+    <circle cx="44" cy="44" r="13" fill="#0F172A" fill-opacity="0.4" />
+    <path d="M16 116l38-44 28 28 22-24 46 40H16z" fill="#0F172A" fill-opacity="0.45" />
+    <rect x="22" y="96" width="76" height="9" rx="4.5" fill="#F8FAFC" fill-opacity="0.92" />
+  </g>
+
+  <!-- Curved Arc Trajectory -->
+  <path
+    d="M 770 320 Q 825 140 1005 188"
+    stroke="url(#arcStroke)"
+    stroke-width="4"
+    stroke-dasharray="8 6"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <circle cx="770" cy="320" r="6" fill="#F59E0B" />
+  <circle cx="1005" cy="188" r="7" fill="#38BDF8" />
+</svg>

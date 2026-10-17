@@ -1,7 +1,7 @@
 {
   "name": "react-native-shared-hero",
   "version": "1.0.3",
-  "description": "High-performance native shared element (hero) transitions for React Native — Fabric (New Architecture), router-agnostic, iOS & Android.",
+  "description": "High-performance native shared element (hero) transitions for React Native: Fabric (New Architecture), router-agnostic, iOS & Android.",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -36,7 +36,12 @@
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "tsc",
-    "lint": "eslint \"**/*.{js,ts,tsx}\""
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "changeset": "node scripts/changeset.mjs",
+    "version-packages": "node scripts/changeset.mjs version",
+    "docs:dev": "yarn workspace react-native-shared-hero-docs dev",
+    "docs:build": "yarn workspace react-native-shared-hero-docs build",
+    "docs:preview": "yarn workspace react-native-shared-hero-docs preview"
   },
   "keywords": [
     "react-native",
@@ -65,11 +70,12 @@
   "bugs": {
     "url": "https://github.com/maitrungduc1410/react-native-shared-hero/issues"
   },
-  "homepage": "https://github.com/maitrungduc1410/react-native-shared-hero#readme",
+  "homepage": "https://maitrungduc1410.github.io/react-native-shared-hero/",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
+    "@changesets/cli": "^3.0.3",
     "@commitlint/config-conventional": "^20.5.0",
     "@eslint/compat": "^2.0.3",
     "@eslint/eslintrc": "^3.3.5",
@@ -96,7 +102,8 @@
     "react-native": "*"
   },
   "workspaces": [
-    "example"
+    "example",
+    "docs"
   ],
   "packageManager": "yarn@4.11.0",
   "react-native-builder-bob": {

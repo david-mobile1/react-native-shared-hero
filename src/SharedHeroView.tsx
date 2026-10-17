@@ -8,6 +8,32 @@ type NativeTransitionEvent = NativeSyntheticEvent<{
   ns: string;
 }>;
 
+/**
+ * Native shared-element container component for React Native (Fabric).
+ *
+ * Wrap any image, card, or view subtree in `<SharedHero id="...">` on both the
+ * source and destination screens. When navigation or state changes mount a
+ * matching hero with the same `id` (and `namespace`), the native coordinator
+ * captures both endpoints and runs the flight in an overlay above the host
+ * window at display refresh rate.
+ *
+ * Also exported under the alias `SharedHero`.
+ *
+ * @example
+ * ```tsx
+ * import { SharedHero } from 'react-native-shared-hero';
+ *
+ * // Source screen
+ * <SharedHero id={`poster-${item.id}`} mode="morph" style={{ borderRadius: 12 }}>
+ *   <Image source={{ uri: item.uri }} style={{ width: 120, height: 160 }} />
+ * </SharedHero>
+ *
+ * // Destination screen
+ * <SharedHero id={`poster-${item.id}`} mode="morph" style={{ borderRadius: 24 }}>
+ *   <Image source={{ uri: item.uri }} style={{ width: '100%', height: 420 }} />
+ * </SharedHero>
+ * ```
+ */
 export function SharedHeroView({
   id,
   namespace = 'default',

@@ -62,6 +62,7 @@ android/app/libs
 android/keystores/debug.keystore
 
 # Yarn
+yarn.lock.changeset
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
@@ -84,3 +85,8 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# Docs site: TypeDoc output and VitePress build/cache
+docs/api/
+docs/.vitepress/dist/
+docs/.vitepress/cache/
