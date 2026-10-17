@@ -351,6 +351,51 @@ const snippet = computed(() => {
   return `// Source screen\n<SharedHero\n  id="poster-42"\n  mode="${mode.value}"\n  style={{ borderRadius: ${sourceRadius.value} }}\n>\n  <Image source={{ uri }} style={styles.thumb} />\n</SharedHero>\n\n// Destination screen\n<SharedHero\n${propLines}\n  style={{ borderRadius: ${destRadius.value} }}\n>\n  <Image source={{ uri }} style={styles.heroHeader} />\n</SharedHero>`;
 });
 
+interface CodeToken {
+  text: string;
+  style: string;
+}
+
+const SHIKI_COMMENT = '--shiki-light:#6A737D;--shiki-dark:#6A737D;';
+const SHIKI_TAG = '--shiki-light:#005CC5;--shiki-dark:#79B8FF;';
+const SHIKI_ATTR = '--shiki-light:#6F42C1;--shiki-dark:#B392F0;';
+const SHIKI_OP = '--shiki-light:#D73A49;--shiki-dark:#F97583;';
+const SHIKI_STR = '--shiki-light:#032F62;--shiki-dark:#9ECBFF;';
+const SHIKI_NUM = '--shiki-light:#005CC5;--shiki-dark:#79B8FF;';
+const SHIKI_PLAIN = '--shiki-light:#24292E;--shiki-dark:#E1E4E8;';
+
+const TOKEN_RE =
+  /"[^"]*"|\b(?:SharedHero|Image)\b|\b[a-zA-Z_]\w*(?==)|=|\b\d+(?:\.\d+)?\b|[^"=\d\w]+|\b\w+\b/g;
+
+function tokenizeTsxLine(line: string): CodeToken[] {
+  if (!line) return [];
+  if (line.trimStart().startsWith('//')) {
+    return [{ text: line, style: SHIKI_COMMENT }];
+  }
+  const tokens: CodeToken[] = [];
+  for (const match of line.matchAll(TOKEN_RE)) {
+    const text = match[0];
+    let style = SHIKI_PLAIN;
+    if (text.startsWith('"')) {
+      style = SHIKI_STR;
+    } else if (text === 'SharedHero' || text === 'Image') {
+      style = SHIKI_TAG;
+    } else if (text === '=') {
+      style = SHIKI_OP;
+    } else if (/^\d/.test(text)) {
+      style = SHIKI_NUM;
+    } else if (line[match.index! + text.length] === '=') {
+      style = SHIKI_ATTR;
+    }
+    tokens.push({ text, style });
+  }
+  return tokens;
+}
+
+const highlightedLines = computed(() =>
+  snippet.value.split('\n').map(tokenizeTsxLine)
+);
+
 const copied = ref(false);
 async function copyCode() {
   await navigator.clipboard.writeText(snippet.value);
@@ -573,7 +618,9 @@ function reset() {
         <button type="button" class="copy" @click="copyCode">
           {{ copied ? t.copied : t.copy }}
         </button>
-        <pre><code>{{ snippet }}</code></pre>
+        <pre
+          class="shiki shiki-themes github-light github-dark vp-code"
+        ><code><template v-for="(line, lineIdx) in highlightedLines" :key="lineIdx"><span class="line"><span v-for="(tok, tokIdx) in line" :key="tokIdx" :style="tok.style">{{ tok.text }}</span></span>{{ lineIdx < highlightedLines.length - 1 ? '\n' : '' }}</template></code></pre>
       </div>
     </div>
   </div>
