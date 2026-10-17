@@ -32,9 +32,6 @@ jobs:
       - name: Setup
         uses: ./.github/actions/setup
 
-      # Trusted publishing needs npm 11.5.1 or newer.
-      - run: npm install -g npm@latest
-
       # Not changesets/action: it always uses the branch changeset-release/<base> and a fixed
       # title, and the version is only known after `changeset version` has run.
       - id: changesets
