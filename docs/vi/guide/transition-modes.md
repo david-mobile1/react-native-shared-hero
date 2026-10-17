@@ -31,6 +31,10 @@ Khi bật `mode="morph"`, lớp overlay sẽ dựng một container động và 
 - **Độ bo góc (`borderRadius`)**: đọc trực tiếp từ `style.borderRadius` của mỗi `<SharedHero>` (trên iOS thông qua `layer.cornerRadius`, trên Android thông qua `ViewOutlineProvider` kết hợp `clipToOutline = true`).
 - **Màu nền (`backgroundColor`)**: đọc từ `style.backgroundColor` và nội suy từng kênh màu RGBA suốt quá trình bay.
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/0d6a614a-0584-414a-ad20-b090a414ad8b" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/6f64a280-2c31-4d24-91b8-cabbf2e24a66" controls loop muted playsinline></video> |
+
 ```tsx
 // Thẻ ở danh sách: bo góc 16px, nền #1E293B
 <SharedHero
@@ -70,6 +74,10 @@ Trong suốt hành trình bay từ khung nguồn sang khung đích, bên trong c
 | `"through"` | Giảm \(1 \to 0\) trong đoạn \(p \in [0, 0.35]\), sau đó giữ \(0\) | Giữ \(0\) đến \(p = 0.40\), rồi tăng \(0 \to 1\) trong đoạn \(p \in [0.40, 1]\) | Chuyển đổi thẻ sang màn hình chi tiết có nội dung chữ và nút bấm khác hẳn nhau (chuẩn Material 3) |
 | `"in"` | Giữ nguyên \(1\) suốt đường bay | Tăng dần \(0 \to 1\) đè lên trên lớp nguồn | Hiệu ứng phủ dần nội dung mới lên trên ảnh gốc |
 | `"out"` | Giảm dần \(1 \to 0\) phía trên lớp đích | Giữ nguyên \(1\) ở lớp dưới | Làm tan lớp vỏ bọc ngoài để lộ nội dung chi tiết bên dưới |
+
+| Android (`fadeMode="through"`) | iOS (`fadeMode="through"`) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/8a489841-fea5-4fca-9728-2b549b0d6a0b" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/f5bd5d09-48c1-4b9c-9705-182d07dd9512" controls loop muted playsinline></video> |
 
 ```tsx
 <SharedHero

@@ -22,6 +22,10 @@ description: 在 react-native-shared-hero 中配置 duration、cubic-Bezier 缓�
 - **iOS**：由 Core Animation 渲染服务直接执行的 `CASpringAnimation`。
 - **Android**：基于 `Choreographer` 帧回调运行的 `androidx.dynamicanimation` `SpringAnimation`。
 
+| Android (Spring 对比 Duration) | iOS (Spring 对比 Duration) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/172f6e38-2c55-40dd-af5f-dfaae2eb79da" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/530774c9-15b4-45c1-a987-cc927c5e1c2c" controls loop muted playsinline></video> |
+
 ```tsx
 <SharedHero
   id={`card-${item.id}`}
@@ -84,6 +88,10 @@ B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_{\text{ctrl}} + t^2 P_1
 \]
 
 其中控制点 \(P_{\text{ctrl}}\) 沿垂直于弦 \(P_0 \to P_1\) 的屏幕上方偏移弦长的 **18%**。
+
+| Android (`motionPath="arc"`) | iOS (`motionPath="arc"`) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/1d951962-e393-48aa-8ad0-7e338a2d70f4" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/58a7ab8b-aaa6-4254-8d3c-1db7f883c528" controls loop muted playsinline></video> |
 
 ```tsx
 <SharedHero

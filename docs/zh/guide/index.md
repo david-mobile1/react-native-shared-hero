@@ -8,6 +8,12 @@ description: react-native-shared-hero 概览：为什么窗口级共享元素过
 
 你只需在页面 A 和页面 B 中用 `<SharedHero id="...">` 包裹对应视图。当页面 B 挂载（或卸载返回页面 A）时，原生协调器会捕获两端视图状态，在飞行期间隐藏真实端点，并在窗口级浮层中以屏幕原生刷新率（60 fps 或 120 fps ProMotion）驱动过渡动画。
 
+## 效果展示
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/35170436-3921-43ad-ac1c-face5a00c7ec" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/3aee83c7-190e-41fa-87b2-9a8ada59a481" controls loop muted playsinline></video> |
+
 ## 为什么需要新的实现方案？
 
 在 React Native 新架构下实现共享元素过渡时，传统方案通常会遇到三个痛点：

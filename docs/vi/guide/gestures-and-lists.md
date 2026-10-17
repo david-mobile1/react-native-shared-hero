@@ -25,6 +25,10 @@ Nhiều ứng dụng xem ảnh/video cho phép người dùng kéo dọc bức �
 
 Khi người dùng kéo một `<SharedHero>` bên trong `PanResponder` hoặc `react-native-gesture-handler` bằng `transform: [{ translateX }, { translateY }, { scale }]`:
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/00ddc9a8-edac-4734-b229-baa12f0f4294" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/0ffcaae6-be21-466a-9646-d9dc0a97e9b5" controls loop muted playsinline></video> |
+
 ```tsx
 <Animated.View
   {...panResponder.panHandlers}
@@ -55,6 +59,10 @@ Khi người dùng kéo vượt ngưỡng đóng và bạn gọi `navigation.goB
 ## 3. Danh sách ảo hóa (`FlatList` & `FlashList`)
 
 Các danh sách ảo hóa liên tục tái sử dụng (recycle) native view khi người dùng cuộn. Nếu không xử lý kỹ ở tầng native, khi một cell được tái sử dụng và đổi prop `id` từ `"photo-1"` sang `"photo-19"`, bucket của `"photo-1"` có thể trỏ nhầm sang cell đang hiển thị ảnh số 19.
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/e575ddb3-bc1d-4ba0-b692-46342e983ce8" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/c8b5e622-9479-480f-93aa-9da9fa00558a" controls loop muted playsinline></video> |
 
 `react-native-shared-hero` giải quyết triệt để bài toán recycle này:
 

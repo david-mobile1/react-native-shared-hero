@@ -40,6 +40,10 @@ Trên iOS, `HeroRegistry` cũng hỗ trợ tự động nhận diện khi một 
 
 `useSharedHero(initial = false)` là một state hook gọn nhẹ dành cho chuyển cảnh tại chỗ, trả về `{ active, start, end, toggle }` với các hàm điều khiển đã được memoize ổn định:
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/05a81333-c76f-4864-8047-4eb46a0e50d0" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/d3020dbc-cf82-4cc7-bf77-98509f474f57" controls loop muted playsinline></video> |
+
 ```tsx
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SharedHero, useSharedHero } from 'react-native-shared-hero';

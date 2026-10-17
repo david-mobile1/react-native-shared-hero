@@ -40,6 +40,10 @@ On iOS, `HeroRegistry` also detects when a single mounted `SharedHeroViewImpl` r
 
 `useSharedHero(initial = false)` is a lightweight state helper hook for in-place transitions. It returns `{ active, start, end, toggle }` with stable memoized callbacks:
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/05a81333-c76f-4864-8047-4eb46a0e50d0" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/d3020dbc-cf82-4cc7-bf77-98509f474f57" controls loop muted playsinline></video> |
+
 ```tsx
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SharedHero, useSharedHero } from 'react-native-shared-hero';

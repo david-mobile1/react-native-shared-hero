@@ -25,6 +25,10 @@ description: 支持 iOS 交互式边缘侧滑返回、自定义下拉拖拽关�
 
 当你在 `PanResponder` 或 `react-native-gesture-handler` 中通过 `transform: [{ translateX }, { translateY }, { scale }]` 实时拖拽 `<SharedHero>` 时：
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/00ddc9a8-edac-4734-b229-baa12f0f4294" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/0ffcaae6-be21-466a-9646-d9dc0a97e9b5" controls loop muted playsinline></video> |
+
 ```tsx
 <Animated.View
   {...panResponder.panHandlers}
@@ -55,6 +59,10 @@ description: 支持 iOS 交互式边缘侧滑返回、自定义下拉拖拽关�
 ## 3. 虚拟化列表（`FlatList` 与 `FlashList`）
 
 虚拟列表在滚动时会不断复用原生组件实例。如果没有专门处理，当一个复用单元格的 `id` 从 `"photo-1"` 变为 `"photo-19"` 时，`"photo-1"` 的注册桶可能会错误地指向正在展示第 19 项内容的视图。
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/e575ddb3-bc1d-4ba0-b692-46342e983ce8" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/c8b5e622-9479-480f-93aa-9da9fa00558a" controls loop muted playsinline></video> |
 
 `react-native-shared-hero` 在原生层对虚拟列表做了三层保护：
 

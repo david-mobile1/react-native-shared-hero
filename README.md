@@ -4,7 +4,11 @@ Window-level native shared element transitions for React Native on the New Archi
 
 [**Documentation & Interactive Playground**](https://maitrungduc1410.github.io/react-native-shared-hero/) · [**Tiếng Việt**](https://maitrungduc1410.github.io/react-native-shared-hero/vi/) · [**简体中文**](https://maitrungduc1410.github.io/react-native-shared-hero/zh/) · [**API Reference**](https://maitrungduc1410.github.io/react-native-shared-hero/api/)
 
----
+## Showcase
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/35170436-3921-43ad-ac1c-face5a00c7ec" controls loop muted></video> | <video src="https://github.com/user-attachments/assets/3aee83c7-190e-41fa-87b2-9a8ada59a481" controls loop muted></video> |
 
 ## Highlights
 

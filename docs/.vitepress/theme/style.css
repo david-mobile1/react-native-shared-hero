@@ -137,3 +137,26 @@
 .VPNavBarTitle .logo {
   flex-shrink: 0;
 }
+
+.vp-doc table:has(video) {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.vp-doc table:has(video) th,
+.vp-doc table:has(video) td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.vp-doc table video {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  max-height: 560px;
+  margin: 0 auto;
+  border-radius: 12px;
+  background: #0b0f19;
+}
+

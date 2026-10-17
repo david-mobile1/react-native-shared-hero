@@ -8,6 +8,12 @@ description: "Tổng quan về react-native-shared-hero: vì sao shared element 
 
 Cách dùng rất trực quan: bạn bọc view ở màn hình A và view ở màn hình B trong `<SharedHero id="...">`. Khi màn hình B được mount (hoặc khi màn hình B unmount để quay về A), coordinator ở tầng native sẽ chụp lại trạng thái hai đầu, tạm ẩn hai view thật trong lúc bay và diễn hoạt bản sao trên một lớp overlay cấp Window ở tốc độ làm tươi gốc của màn hình (60 fps hoặc 120 fps ProMotion).
 
+## Showcase
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/35170436-3921-43ad-ac1c-face5a00c7ec" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/3aee83c7-190e-41fa-87b2-9a8ada59a481" controls loop muted playsinline></video> |
+
 ## Vì sao lại cần một hướng tiếp cận mới?
 
 Khi làm shared element transition trên React Native (đặc biệt với New Architecture), anh em dev thường vướng 3 vấn đề kinh điển:

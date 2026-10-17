@@ -31,6 +31,10 @@ description: 深入了解 snapshot 与 morph 过渡模式、fadeMode 透明度�
 - **圆角半径（`borderRadius`）**：直接读取两端 `<SharedHero>` 的 `style.borderRadius`（iOS 通过 `layer.cornerRadius` 驱动，Android 通过自定义 `ViewOutlineProvider` 配合 `clipToOutline = true` 驱动）。
 - **背景颜色（`backgroundColor`）**：读取 `style.backgroundColor` 并在 RGBA 空间逐帧平滑插值。
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/0d6a614a-0584-414a-ad20-b090a414ad8b" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/6f64a280-2c31-4d24-91b8-cabbf2e24a66" controls loop muted playsinline></video> |
+
 ```tsx
 // 源卡片：16px 圆角，#1E293B 背景
 <SharedHero
@@ -70,6 +74,10 @@ description: 深入了解 snapshot 与 morph 过渡模式、fadeMode 透明度�
 | `"through"` | 在 \(p \in [0, 0.35]\) 内从 \(1 \to 0\)，之后保持 \(0\) | 在 \(p = 0.40\) 前保持 \(0\)，在 \(p \in [0.40, 1]\) 内从 \(0 \to 1\) | 符合 Material 3 规范的容器变形，适合两端文本排版或操作按钮差异较大的卡片 |
 | `"in"` | 全程保持 \(1\) | 在源图层上方从 \(0 \to 1\) 渐显 | 目标内容逐步覆盖在源画面之上的揭示效果 |
 | `"out"` | 在目标图层上方从 \(1 \to 0\) 渐隐 | 在底层全程保持 \(1\) | 溶解顶层封面或徽章以露出底部完整视图 |
+
+| Android (`fadeMode="through"`) | iOS (`fadeMode="through"`) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/8a489841-fea5-4fca-9728-2b549b0d6a0b" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/f5bd5d09-48c1-4b9c-9705-182d07dd9512" controls loop muted playsinline></video> |
 
 ```tsx
 <SharedHero

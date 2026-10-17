@@ -10,6 +10,10 @@ description: Tạo hiệu ứng shared element transition đầu tiên trong Rea
 
 Giả sử bạn có màn hình lưới ảnh (`PhotoGridScreen`) và màn hình chi tiết (`PhotoDetailScreen`) nằm trong một native stack navigator (`@react-navigation/native-stack` hoặc `expo-router`).
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/8902a96b-59cf-4893-a0fd-a5b4316b4abd" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/65177700-0503-4ad5-9f7c-912f55cf6e45" controls loop muted playsinline></video> |
+
 ### Bước 1: Bọc phần tử nguồn ở danh sách
 
 Ở màn hình danh sách, bọc ảnh thumbnail trong `<SharedHero>` và truyền vào `id` gắn với ID duy nhất của từng item:

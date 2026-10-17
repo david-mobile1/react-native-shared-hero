@@ -31,6 +31,10 @@ In `morph` mode, the native overlay builds a morphing container layer that inter
 - **Corner radius**: read directly from the `borderRadius` in each `<SharedHero>`'s `style` prop (on iOS via `layer.cornerRadius`, on Android via a custom `ViewOutlineProvider` with `clipToOutline = true`).
 - **Background color**: read from `style.backgroundColor` and interpolated in RGBA space across the flight.
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/0d6a614a-0584-414a-ad20-b090a414ad8b" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/6f64a280-2c31-4d24-91b8-cabbf2e24a66" controls loop muted playsinline></video> |
+
 ```tsx
 // Source card: 16px corners, #1E293B surface
 <SharedHero
@@ -70,6 +74,10 @@ While the flying container moves and scales from the source rect to the destinat
 | `"through"` | \(1 \to 0\) over \(p \in [0, 0.35]\), then \(0\) | \(0\) until \(p = 0.40\), then \(0 \to 1\) over \(p \in [0.40, 1]\) | Material 3 container transforms where source and destination layouts contain different text or controls |
 | `"in"` | Stays \(1\) throughout | \(0 \to 1\) on top of source | Progressive reveal where the destination overlays the source |
 | `"out"` | \(1 \to 0\) on top of destination | Stays \(1\) underneath | Dissolving a cover or badge to reveal the destination beneath |
+
+| Android (`fadeMode="through"`) | iOS (`fadeMode="through"`) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/8a489841-fea5-4fca-9728-2b549b0d6a0b" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/f5bd5d09-48c1-4b9c-9705-182d07dd9512" controls loop muted playsinline></video> |
 
 ```tsx
 <SharedHero

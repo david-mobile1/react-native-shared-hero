@@ -40,6 +40,10 @@ description: "无需路由导航，使用 useSharedHero() 与独立的 React key
 
 `useSharedHero(initial = false)` 是专为同屏原地过渡提供的轻量状态 Hook，返回 `{ active, start, end, toggle }` 以及引用稳定的回调函数：
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/05a81333-c76f-4864-8047-4eb46a0e50d0" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/d3020dbc-cf82-4cc7-bf77-98509f474f57" controls loop muted playsinline></video> |
+
 ```tsx
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SharedHero, useSharedHero } from 'react-native-shared-hero';

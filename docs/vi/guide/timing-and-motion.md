@@ -22,6 +22,10 @@ Khi bạn truyền prop `spring` vào `<SharedHero>`, thư viện sẽ bỏ qua 
 - **iOS**: `CASpringAnimation` chạy trực tiếp trên render server của Core Animation.
 - **Android**: `SpringAnimation` của `androidx.dynamicanimation` đồng bộ theo từng nhịp `Choreographer`.
 
+| Android (Spring so với Duration) | iOS (Spring so với Duration) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/172f6e38-2c55-40dd-af5f-dfaae2eb79da" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/530774c9-15b4-45c1-a987-cc927c5e1c2c" controls loop muted playsinline></video> |
+
 ```tsx
 <SharedHero
   id={`card-${item.id}`}
@@ -84,6 +88,10 @@ B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_{\text{ctrl}} + t^2 P_1
 \]
 
 trong đó điểm điều khiển \(P_{\text{ctrl}}\) được đẩy lệch vuông góc với dây cung \(P_0 \to P_1\) một khoảng bằng **18%** độ dài dây cung về phía trên màn hình.
+
+| Android (`motionPath="arc"`) | iOS (`motionPath="arc"`) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/1d951962-e393-48aa-8ad0-7e338a2d70f4" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/58a7ab8b-aaa6-4254-8d3c-1db7f883c528" controls loop muted playsinline></video> |
 
 ```tsx
 <SharedHero

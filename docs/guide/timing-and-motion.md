@@ -22,6 +22,10 @@ When you pass a `spring` object to `<SharedHero>`, it overrides `duration` and `
 - **iOS**: `CASpringAnimation` rendered by Core Animation's render server.
 - **Android**: `SpringAnimation` from `androidx.dynamicanimation` running on the choreographer frame callback.
 
+| Android (Spring vs Duration) | iOS (Spring vs Duration) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/172f6e38-2c55-40dd-af5f-dfaae2eb79da" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/530774c9-15b4-45c1-a987-cc927c5e1c2c" controls loop muted playsinline></video> |
+
 ```tsx
 <SharedHero
   id={`card-${item.id}`}
@@ -84,6 +88,10 @@ B(t) = (1 - t)^2 P_0 + 2(1 - t)t P_{\text{ctrl}} + t^2 P_1
 \]
 
 where the control point \(P_{\text{ctrl}}\) is offset perpendicular to the chord \(P_0 \to P_1\) by **18%** of the chord length in the upward screen direction.
+
+| Android (`motionPath="arc"`) | iOS (`motionPath="arc"`) |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/1d951962-e393-48aa-8ad0-7e338a2d70f4" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/58a7ab8b-aaa6-4254-8d3c-1db7f883c528" controls loop muted playsinline></video> |
 
 ```tsx
 <SharedHero

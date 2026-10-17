@@ -10,6 +10,10 @@ A shared element transition only needs two `<SharedHero>` components that render
 
 Suppose you have a photo grid and a detail screen inside a native stack navigator (`@react-navigation/native-stack` or `expo-router`).
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/8902a96b-59cf-4893-a0fd-a5b4316b4abd" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/65177700-0503-4ad5-9f7c-912f55cf6e45" controls loop muted playsinline></video> |
+
 ### Step 1: Wrap the source element
 
 On the list screen, wrap the thumbnail in `<SharedHero>` and give it a unique, deterministic `id` tied to the item's data ID:

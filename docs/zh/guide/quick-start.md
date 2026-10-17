@@ -10,6 +10,10 @@ description: 5 分钟内在 React Native 中使用 SharedHero 构建你的第一
 
 假设你在原生栈导航器（`@react-navigation/native-stack` 或 `expo-router`）中有一个图片网格列表页和一个详情页。
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/8902a96b-59cf-4893-a0fd-a5b4316b4abd" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/65177700-0503-4ad5-9f7c-912f55cf6e45" controls loop muted playsinline></video> |
+
 ### 第一步：包裹源视图
 
 在列表页中，使用 `<SharedHero>` 包裹缩略图，并绑定一个与数据项 ID 对应的唯一 `id`：

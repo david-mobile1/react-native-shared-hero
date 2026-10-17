@@ -25,6 +25,10 @@ Many media apps let users drag a photo or card vertically on the detail screen t
 
 When the user drags a `<SharedHero>` inside a `PanResponder` or `react-native-gesture-handler` pan gesture using `transform: [{ translateX }, { translateY }, { scale }]`:
 
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/00ddc9a8-edac-4734-b229-baa12f0f4294" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/0ffcaae6-be21-466a-9646-d9dc0a97e9b5" controls loop muted playsinline></video> |
+
 ```tsx
 <Animated.View
   {...panResponder.panHandlers}
@@ -55,6 +59,10 @@ When the user crosses your dismiss threshold and you call `navigation.goBack()`:
 ## 3. Virtualized lists (`FlatList` & `FlashList`)
 
 Virtualized lists recycle native component views as the user scrolls. Without special handling, changing a recycled cell's `id` prop from `"photo-1"` to `"photo-19"` could leave `"photo-1"` pointing to a cell that now displays item 19.
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/e575ddb3-bc1d-4ba0-b692-46342e983ce8" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/c8b5e622-9479-480f-93aa-9da9fa00558a" controls loop muted playsinline></video> |
 
 `react-native-shared-hero` protects virtualized lists at the native level:
 

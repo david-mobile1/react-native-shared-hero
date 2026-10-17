@@ -8,6 +8,12 @@ description: "Overview of react-native-shared-hero: why window-level shared elem
 
 You wrap a view on screen A and a view on screen B in `<SharedHero id="...">`. When screen B mounts (or screen A unmounts), the native coordinator captures both views, hides the real endpoints while the transition is in flight, and animates a clone across a window-level overlay at the display's native refresh rate (60 fps or 120 fps ProMotion).
 
+## Showcase
+
+| Android | iOS |
+| --- | --- |
+| <video src="https://github.com/user-attachments/assets/35170436-3921-43ad-ac1c-face5a00c7ec" controls loop muted playsinline></video> | <video src="https://github.com/user-attachments/assets/3aee83c7-190e-41fa-87b2-9a8ada59a481" controls loop muted playsinline></video> |
+
 ## Why another shared element library?
 
 Existing shared element solutions in React Native run into three recurring pain points on the New Architecture:
